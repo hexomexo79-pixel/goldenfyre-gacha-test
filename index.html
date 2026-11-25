@@ -145,6 +145,9 @@ h3{margin:0 0 10px;font-size:16px}
 .card .ctop{display:flex;justify-content:space-between;align-items:center;gap:4px;margin-bottom:7px}
 .card .rank{font-weight:900;font-size:clamp(11px,11cqw,17px)}
 .tag{font-size:clamp(7px,6.5cqw,10px);font-weight:800;letter-spacing:.4px;padding:2px 5px;border-radius:5px;background:color-mix(in srgb,var(--c) 22%,transparent);color:var(--c);border:1px solid color-mix(in srgb,var(--c) 55%,transparent);text-transform:uppercase;white-space:nowrap}
+.nameimg{width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:6% 8%;box-sizing:border-box;text-align:center;font-weight:900;color:#fff;
+  font-size:clamp(7px,11.5cqw,30px);line-height:1.02;letter-spacing:-.01em;text-shadow:0 2px 6px rgba(0,0,0,.55),0 0 1px rgba(0,0,0,.8);overflow:hidden;overflow-wrap:anywhere}
+.card.mini .nameimg{font-size:clamp(5px,13cqw,12px);padding:4%}
 .thumb{aspect-ratio:16/10;border-radius:7px;overflow:hidden;background:#0c0b0f;border:1px solid rgba(255,255,255,.12);display:grid;place-items:center;flex:none}
 .thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .noimg{font-weight:900;font-size:12px;text-align:center;padding:6px;color:var(--c);background:radial-gradient(circle,color-mix(in srgb,var(--c) 30%,transparent),transparent 70%);width:100%;height:100%;display:grid;place-items:center}
@@ -777,6 +780,21 @@ function cardOdds(l, o = {}) {   // chance per card shown (each option in a pack
 function shortN(x) { x = Math.round(x); return x >= 1e6 ? (x / 1e6).toFixed(x >= 1e7 ? 0 : 1) + 'M' : x >= 1e4 ? Math.round(x / 1e3) + 'K' : fmt(x); }
 
 // ---------------- card rendering ----------------
+// levels with no picture: their full name on a gradient that fits the name (or a random one picked from the name)
+const NAME_GRADS = {
+  hailtothethief: ['#ff2d2d', '#ffd23f', '#1a1a1a'], colonthreecircles: ['#ff8fd8', '#b06bff'], octagonforce: ['#ff7a18', '#3b4cca'],
+  fasttravel: ['#00e5ff', '#2563eb'], kineticdisorption: ['#ff5f1f', '#b5179e'], futurecircles: ['#2dd4bf', '#7c3aed'],
+  dreamypath: ['#c4b5fd', '#f9a8d4'], coralcaved: ['#ff7f6e', '#0f766e'], happyland: ['#fde047', '#fb7185'], starlitnight: ['#0b1d51', '#6d28d9', '#facc15'],
+  atmospheric: ['#7dd3fc', '#e0f2fe'], starfall: ['#312e81', '#f59e0b'], oblivion: ['#05010a', '#4c1d95'], starlit: ['#1e3a8a', '#a78bfa'],
+  wireframe: ['#020617', '#22c55e'], amomentapart: ['#fb923c', '#7e22ce'], xenogenesis: ['#84cc16', '#052e16'], speakerhappiness: ['#facc15', '#f97316'],
+  skyland: ['#38bdf8', '#86efac'], harinezumi: ['#92400e', '#fcd9a4'], empchallenge2: ['#3b82f6', '#a21caf'], circuit: ['#16a34a', '#0e7490'],
+  theaether: ['#a5f3fc', '#c084fc'], tranquil: ['#5eead4', '#1d4ed8'], galaxymadness: ['#1e1b4b', '#c026d3', '#0ea5e9'], cove: ['#0d9488', '#fde68a']
+};
+function nameThumb(l) {
+  const g = NAME_GRADS[ckey(l.name)], hu = hueOf(ckey(l.name));
+  const bg = g ? `linear-gradient(135deg,${g.join(',')})` : `linear-gradient(135deg,hsl(${hu} 75% 50%),hsl(${(hu + 70) % 360} 70% 32%))`;
+  return `<div class="nameimg" style="background:${bg}">${esc(l.name)}</div>`;
+}
 function thumb(l) {
   if (l.tier === 'event' || l.tier === 'eventreward') {   // event cards: teal-green tile with the first letter (like player cards)
     if (l.image) return `<img loading="lazy" src="${esc(l.image)}" alt="">`;
@@ -784,6 +802,7 @@ function thumb(l) {
     if (l.info?.kind === 'player' && pfpOf(l.name)) return `<img loading="lazy" src="${esc(pfpOf(l.name))}" alt="">`;
     if (l.tier === 'eventreward' && FACES[l.info?.face]) return `<div class="pimg" style="background:url(${FACES[l.info.face]}) center/auto 84% no-repeat,radial-gradient(circle at 50% 50%,${esc(l.info.color || '#2dd4bf')}99,#0b3b35 72%)"></div>`;
     if (l.tier === 'eventreward' && l.info?.color) return `<div class="pimg" style="background:linear-gradient(135deg,${esc(l.info.color)},#0b3b35)">${esc(l.name.slice(0, 1).toUpperCase())}</div>`;
+    if (l.tier === 'event' && l.info?.kind !== 'player') return nameThumb(l);
     const hu = 160 + hueOf(l.key) % 30;
     return `<div class="pimg" style="background:linear-gradient(135deg,hsl(${hu} 70% 42%),hsl(${(hu + 25) % 360} 75% 22%))">${esc(l.name.replace(/[^A-Za-z0-9]/g, '').slice(0, 1).toUpperCase() || '◆')}</div>`;
   }
@@ -793,8 +812,8 @@ function thumb(l) {
   }
   if (l.image) return `<img loading="lazy" src="${esc(l.image)}" alt="">`;
   return l.video_id
-    ? `<img loading="lazy" src="https://i.ytimg.com/vi/${esc(l.video_id)}/mqdefault.jpg" alt="" onerror="this.outerHTML='<div class=noimg>'+this.closest('.card').dataset.name+'</div>'">`
-    : `<div class="noimg">${esc(l.name)}</div>`;
+    ? `<img loading="lazy" src="https://i.ytimg.com/vi/${esc(l.video_id)}/mqdefault.jpg" alt="" onerror="this.outerHTML=nameThumb(S.byKey[this.closest('.card').dataset.key])">`
+    : nameThumb(l);
 }
 function cardHTML(l, o = {}) {
   if (!l) return '';
