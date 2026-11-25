@@ -658,7 +658,7 @@ function creatorStatus(c, own, claimed = []) {
   return {c, have, n, full, bonus, nextGain, pct: Math.round((have / n) ** 2 * 100), done: have >= n, claimed: isClaimed, redeemable: have >= n && !isClaimed, missing: c.keys.filter(k => !own[k]),
           holoHave, holoDone: holoHave === n, holoClaimed: claimed.includes('✦' + c.key)};
 }
-const REWARD_SHARE = {easy: 0.10, normal: 0.20, hard: 0.30, harder: 0.40, insane: 0.50};
+const REWARD_SHARE = {easy: 0.05, normal: 0.10, hard: 0.15, harder: 0.20, insane: 0.25};
 const rewardShare = l => REWARD_SHARE[l.info?.face] ?? 0.10;
 function scoreInfo(own, claimed = [], cclaimed = []) {
   const byTier = {}; let base = 0, holoBonus = 0, uniq = 0, holos = 0, goldens = 0, goldBonus = 0;
@@ -675,11 +675,12 @@ function scoreInfo(own, claimed = [], cclaimed = []) {
     for (const [k, o] of Object.entries(own)) { const l = S.byKey[k]; if (l && l.tier !== 'unverified') best = Math.max(best, l.points * lvMult(o)); }   // copies your best card's full value (golden 10x included)
     const now = byTier.unverified.n * best; base += now - byTier.unverified.pts; byTier.unverified.pts = now;
   }
-  if (byTier.eventreward) {   // event reward cards: their flat points + a share of your best level card (Easy 10% ... Insane 50%)
-    let best = 0, share = 0;
+  if (byTier.eventreward) {   // event reward cards: flat points + a share of your best level card (Easy 5% ... Insane 25%)
+    let best = 0;
     for (const [k, o] of Object.entries(own)) { const l = S.byKey[k]; if (l && TIERS.includes(l.tier)) best = Math.max(best, l.points * lvMult(o)); }
-    for (const k of Object.keys(own)) { const l = S.byKey[k]; if (l && l.tier === 'eventreward') share += rewardShare(l); }
-    const now = byTier.eventreward.pts + Math.round(best * share); base += now - byTier.eventreward.pts; byTier.eventreward.pts = now;
+    let now = 0;   // they stack: all 5 together = flat 3,100 + 75% of your best card (one Unverified is 100%)
+    for (const k of Object.keys(own)) { const l = S.byKey[k]; if (l && l.tier === 'eventreward') now += l.points + best * rewardShare(l); }
+    now = Math.round(now); base += now - byTier.eventreward.pts; byTier.eventreward.pts = now;
   }
   // player cards: +25% on every owned level that player verified or created (one copy is enough)
   let playerBonus = 0, players = 0;
