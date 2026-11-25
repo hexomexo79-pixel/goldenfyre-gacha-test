@@ -174,6 +174,13 @@ h3{margin:0 0 10px;font-size:16px}
 a.chip{text-decoration:none}a.chip:not(.on){color:inherit}a.chip.on .muted{color:inherit;opacity:.6}
 .tq{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-top:6px}.tq summary{cursor:pointer}
 .tq pre{white-space:pre-wrap;font-size:12px;background:#0006;border-radius:8px;padding:10px;margin:8px 0;overflow-x:auto}
+.noimg.evimg{font-size:clamp(28px,30cqw,54px);line-height:1}
+.card.ev{--frame:linear-gradient(135deg,#ff3cac,#784ba0,#2b86c5)}
+.card.evr{--frame:linear-gradient(135deg,#ff3cac,#ffd36b,#2b86c5)}
+.evtrack{display:grid;gap:8px;margin-top:10px}
+.evstep{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+.evstep.done{opacity:.55}.evstep.next{border-color:#ff3cac;box-shadow:0 0 14px #ff3cac44}
+.evbar{height:10px;border-radius:99px;background:#ffffff14;overflow:hidden;margin-top:8px}.evbar i{display:block;height:100%;background:linear-gradient(90deg,#ff3cac,#784ba0,#2b86c5)}
 .card.missing{filter:grayscale(1) brightness(.42)}
 .card.missing.holo::after,.card.missing.holo::before{display:none}
 .card.missing .thumb img{opacity:.35}
@@ -457,6 +464,7 @@ footer{text-align:center;color:#6d6975;font-size:12px;padding:20px;line-height:1
     <a href="#/">Packs</a>
     <a href="#/collection">Collection</a>
     <a href="#/sets" id="navSets">Sets</a>
+    <a href="#/event" id="navEvent" class="hidden">Event</a>
     <a href="#/leaderboard" id="navBoard">Leaderboard</a>
     <a href="#/trades" id="navTrades">Trades</a>
     <a href="#/news" id="navNews">News</a>
@@ -631,7 +639,7 @@ function creatorStatus(c, own, claimed = []) {
 function scoreInfo(own, claimed = [], cclaimed = []) {
   const byTier = {}; let base = 0, holoBonus = 0, uniq = 0, holos = 0, goldens = 0, goldBonus = 0;
   for (const [k, o] of Object.entries(own)) {
-    const l = S.byKey[k]; if (!l) continue;
+    const l = S.byKey[k]; if (!l || l.tier === 'event') continue;   // event cards only count inside the event
     const t = byTier[l.tier] ||= {n: 0, pts: 0};
     t.n++; t.pts += l.points; base += l.points;
     if (l.rank) uniq++;
@@ -733,6 +741,7 @@ function shortN(x) { x = Math.round(x); return x >= 1e6 ? (x / 1e6).toFixed(x >=
 
 // ---------------- card rendering ----------------
 function thumb(l) {
+  if (l.tier === 'event' || l.tier === 'eventreward') return `<div class="noimg evimg">${esc(l.info?.emoji || '◆')}</div>`;
   if (l.tier === 'player') {
     const url = PLAYER_ICONS[ckey(l.name)] || CFG.CREATOR_ICONS[ckey(l.name)], hu = hueOf(ckey(l.name));
     return url ? `<img loading="lazy" src="${esc(url)}" alt="">` : `<div class="pimg" style="background:linear-gradient(135deg,hsl(${hu} 65% 48%),hsl(${(hu + 40) % 360} 60% 28%))">${esc(l.name.slice(0, 1).toUpperCase())}</div>`;
@@ -744,15 +753,15 @@ function thumb(l) {
 }
 function cardHTML(l, o = {}) {
   if (!l) return '';
-  const cls = ['card', l.tier === 'uplayer' ? 't-unverified t-uplayer' : 't-' + l.tier, l.tier === 'player' ? 'pr-' + pInfo(l).rarity : '', o.holo || o.golden || l.tier === 'unverified' || l.tier === 'uplayer' ? 'holo' : '', o.golden ? 'golden' : '', o.missing ? 'missing' : '', o.mini ? 'mini' : '', o.sel ? 'sel' : ''].join(' ');
+  const cls = ['card', l.tier === 'uplayer' ? 't-unverified t-uplayer' : l.tier === 'event' ? 't-' + (l.info?.rarity || 'common') + ' ev' : l.tier === 'eventreward' ? 't-legendary evr' : 't-' + l.tier, l.tier === 'player' ? 'pr-' + pInfo(l).rarity : '', o.holo || o.golden || l.tier === 'unverified' || l.tier === 'uplayer' ? 'holo' : '', o.golden ? 'golden' : '', o.missing ? 'missing' : '', o.mini ? 'mini' : '', o.sel ? 'sel' : ''].join(' ');
   const glow = l.rank && l.rank <= 40 ? ((41 - l.rank) / 40).toFixed(2) : 0;
   return `<div class="${cls}" style="--gl:${glow}" data-key="${esc(l.key)}" data-name="${esc(l.name)}" ${o.id ? `data-id="${o.id}"` : ''}>
-    <div class="ctop"><span class="rank">${l.tier === 'unverified' || l.tier === 'uplayer' ? '1 of 1' : l.tier === 'player' ? '★' : l.rank ? '#' + l.rank : '—'}</span><span class="tag">${l.tier === 'uplayer' ? 'player???' : l.tier === 'unverified' ? 'unverified' : l.tier === 'player' ? 'player · ' + pInfo(l).rarity : l.rank ? l.tier : 'vaulted'}</span></div>
+    <div class="ctop"><span class="rank">${l.tier === 'event' ? '◆' : l.tier === 'eventreward' ? '◆' : l.tier === 'unverified' || l.tier === 'uplayer' ? '1 of 1' : l.tier === 'player' ? '★' : l.rank ? '#' + l.rank : '—'}</span><span class="tag">${l.tier === 'event' ? (l.info?.kind === 'player' ? '★ ' : '') + (l.info?.rarity || '') : l.tier === 'eventreward' ? 'event reward' : l.tier === 'uplayer' ? 'player???' : l.tier === 'unverified' ? 'unverified' : l.tier === 'player' ? 'player · ' + pInfo(l).rarity : l.rank ? l.tier : 'vaulted'}</span></div>
     <div class="thumb">${thumb(l)}</div>
     ${o.mini ? '' : `<div class="codds">${cardOdds(l, o)}</div>`}
     <div class="nm">${esc(l.name)}</div>
-    <div class="meta">${l.tier === 'uplayer' ? '<b class="abil">✦ ???</b> · Who is this?' : l.tier === 'player' ? `Beat ${pInfo(l).beaten.length} · Verified ${pInfo(l).verified.length}` : `${l.tier === 'unverified' ? (ABILITIES[l.key] ? `<b class="abil">✦ ${esc(ABILITIES[l.key].name)}</b> · ${esc(ABILITIES[l.key].desc)}` : 'Not verified yet') : `Verified by ${esc(l.verifier || '?')}`}<br>By ${esc(creatorsOf(l).join(', ') || '?')}`}</div>
-    <div class="pts">${l.tier === 'uplayer' ? '= your best player' : l.tier === 'player' ? (o.golden ? `★ boosts ×${RULES.playerGoldMult}` : o.holo ? '★ boosts ×2' : '★ boosts levels') : l.tier === 'unverified' ? '= your best card' : fmt(l.points * lvMult(o)) + ' pts' + (o.golden ? ' ★' : o.holo ? ' ✦' : '')}</div>
+    <div class="meta">${l.tier === 'event' || l.tier === 'eventreward' ? esc(l.info?.desc || '') : l.tier === 'uplayer' ? '<b class="abil">✦ ???</b> · Who is this?' : l.tier === 'player' ? `Beat ${pInfo(l).beaten.length} · Verified ${pInfo(l).verified.length}` : `${l.tier === 'unverified' ? (ABILITIES[l.key] ? `<b class="abil">✦ ${esc(ABILITIES[l.key].name)}</b> · ${esc(ABILITIES[l.key].desc)}` : 'Not verified yet') : `Verified by ${esc(l.verifier || '?')}`}<br>By ${esc(creatorsOf(l).join(', ') || '?')}`}</div>
+    <div class="pts">${l.tier === 'event' ? fmt(l.points * (o.holo ? 2 : 1)) + ' ev pts' + (o.holo ? ' ✦' : '') : l.tier === 'eventreward' ? fmt(l.points) + ' pts' : l.tier === 'uplayer' ? '= your best player' : l.tier === 'player' ? (o.golden ? `★ boosts ×${RULES.playerGoldMult}` : o.holo ? '★ boosts ×2' : '★ boosts levels') : l.tier === 'unverified' ? '= your best card' : fmt(l.points * lvMult(o)) + ' pts' + (o.golden ? ' ★' : o.holo ? ' ✦' : '')}</div>
     ${o.golden ? '<div class="holotag goldtag">★ GOLDEN</div>' : o.holo && l.tier !== 'unverified' ? '<div class="holotag">✦ HOLO</div>' : ''}
   </div>`;
 }
@@ -904,7 +913,7 @@ function showLevel(key) {
 }
 document.addEventListener('click', e => {
   const c = e.target.closest('.card[data-key]');
-  if (c && !c.closest('.tstack,.tray,.modal,.overlay,.nomodal')) showLevel(c.dataset.key);
+  if (c && !c.closest('.tstack,.tray,.modal,.overlay,.nomodal') && S.byKey[c.dataset.key]?.tier !== 'event') showLevel(c.dataset.key);
 });
 
 // ---------------- auth ----------------
@@ -1004,6 +1013,7 @@ function renderHome() {
     : info.creators.filter(x => !x.done).sort((a, b) => b.nextGain - a.nextGain).slice(0, 3);
   app.innerHTML = `
   ${dropBanner()}
+  ${S.event ? `<div class="banner" style="border-color:#ff3cac;background:linear-gradient(90deg,#ff3cac22,#2b86c522)"><b>◆ ${esc(S.event.name)} is live!</b>&nbsp;<span class="muted">${S.event.packs} event pack${S.event.packs === 1 ? '' : 's'} ready</span><span class="spacer"></span><button class="btn primary sm" onclick="go('#/event')">Go to event</button></div>` : ''}
   ${st.pending_picks ? `<div class="banner"><b>You have ${st.pending_picks} opened pack${st.pending_picks > 1 ? 's' : ''} waiting for you to pick a card.</b><span class="spacer"></span><button class="btn primary sm" id="resume">Pick now</button></div>` : ''}
   <div class="panel"><div class="packs ${st.player_cards ? 'two' : ''}">
     <div>
@@ -1177,6 +1187,7 @@ function scoreTable(info) {
     <tr><td><b>Set bonuses</b></td><td class="muted">${info.setsDone}/${S.packs.length}</td><td style="text-align:right">+${fmt(info.setBonus)}</td></tr>
     ${info.holoSetBonus || info.holoCreatorBonus ? `<tr><td><b>✦ Holo set & creator bonuses</b></td><td class="muted">${info.holoSetsDone} sets, ${info.holoCreatorsDone} creators all in holo</td><td style="text-align:right">+${fmt(info.holoSetBonus + info.holoCreatorBonus)}</td></tr>` : ''}
     ${info.players ? `<tr><td><b>★ Player cards</b></td><td class="muted">${info.players} player${info.players > 1 ? 's' : ''}</td><td style="text-align:right">+${fmt(info.playerBonus)}</td></tr>` : ''}
+    ${info.byTier.eventreward ? `<tr><td><b>◆ Event rewards</b></td><td class="muted">${info.byTier.eventreward.n} card${info.byTier.eventreward.n > 1 ? 's' : ''}</td><td style="text-align:right">+${fmt(info.byTier.eventreward.pts)}</td></tr>` : ''}
     ${info.uplayers ? `<tr><td><span class="unvtxt">UNVERIFIED PLAYERS</span></td><td class="muted">${info.uplayers} × your best player</td><td style="text-align:right">+${fmt(info.uplayerBonus)}</td></tr>` : ''}
     ${info.psetBonus ? `<tr><td><b>★ Player sets</b></td><td class="muted">${info.psets.filter(x => x.done && x.claimed).length} redeemed</td><td style="text-align:right">+${fmt(info.psetBonus)}</td></tr>` : ''}
     ${info.psetHoloBonus ? `<tr><td><b>✦ Holo player sets</b></td><td class="muted">${info.psets.filter(x => x.holoDone && x.holoClaimed).length} all in holo</td><td style="text-align:right">+${fmt(info.psetHoloBonus)}</td></tr>` : ''}
@@ -1353,9 +1364,9 @@ async function openPacks(kind, count) {
   if (top && (kind === 'normal' || kind === 'player')) top.classList.add('tearing');
   document.querySelectorAll('main button').forEach(b => b.disabled = true);
   let r;
-  try { [r] = await Promise.all([rpc('open_packs', {p_token: S.token, p_kind: kind, p_count: count}), sleep(650)]); }
-  catch (e) { busy = false; toast(e.message, true); renderHome(); return; }
-  setState(r.state);
+  try { [r] = await Promise.all([kind === 'event' ? rpc('open_event_packs', {p_token: S.token, p_count: count}) : rpc('open_packs', {p_token: S.token, p_kind: kind, p_count: count}), sleep(650)]); }
+  catch (e) { busy = false; toast(e.message, true); route(); return; }
+  setState(r.state); if (r.event) S.event = r.event;
   busy = false;
   runPicks(r.picks);
 }
@@ -1503,7 +1514,7 @@ function runPicks(picks) {
     const left = picks.length - idx - 1;
     const instant = localStorage.getItem('gacha_instant') === '1';
     ov.innerHTML = `<div class="inner">
-      <div class="muted">${pk.kind === 'holo' ? '✦ Holo pack' : pk.kind === 'player' ? '★ Player pack' : pk.kind === 'holo_player' ? '✦ ★ Holo player pack' : ''}${picks.length > 1 ? ` · Pack ${idx + 1} of ${picks.length}` : '&nbsp;'}</div>
+      <div class="muted">${pk.kind === 'holo' ? '✦ Holo pack' : pk.kind === 'player' ? '★ Player pack' : pk.kind === 'holo_player' ? '✦ ★ Holo player pack' : pk.kind === 'event' ? '◆ ' + esc(S.event?.name || 'Event') + ' pack' : ''}${picks.length > 1 ? ` · Pack ${idx + 1} of ${picks.length}` : '&nbsp;'}</div>
       <h1 id="pTitle">${instant ? 'Pick 1 to keep' : 'Revealing…'}</h1>
       <div class="pickrow" style="--n:${pk.options.length}">${pk.options.map((o, i) => `<div class="opt ${instant ? '' : 'deal'}" data-i="${i}" style="animation-delay:${i * 130}ms">
         <div class="flip t-${o.uplayer || o.unverified ? 'apex' : o.golden ? 'golden' : lv(o).tier === 'player' ? pInfo(lv(o)).rarity : lv(o).tier}"><div class="flip-in"><div class="fr">${cardHTML(lv(o), {holo: o.holo, golden: o.golden})}</div><div class="cback"><img src="${LOGO}" alt=""></div></div></div>
@@ -1515,7 +1526,7 @@ function runPicks(picks) {
     const opts = [...ov.querySelectorAll('.opt')];
     let skip = false, ready = false, chosen = null;
     const flip = o => { const f = o.querySelector('.flip'); f.classList.remove('charge'); f.classList.add('open'); o.classList.add('revealed'); };
-    const packsAfter = () => pk.kind === 'normal' ? S.me.packs + S.me.bonus_packs : pk.kind === 'holo' ? S.me.holo_packs : pk.kind === 'player' ? S.me.player_packs : pk.kind === 'holo_player' ? S.me.holo_player_packs : pk.kind === 'epic' ? S.me.epic_packs : S.me.legendary_packs;
+    const packsAfter = () => pk.kind === 'normal' ? S.me.packs + S.me.bonus_packs : pk.kind === 'holo' ? S.me.holo_packs : pk.kind === 'player' ? S.me.player_packs : pk.kind === 'holo_player' ? S.me.holo_player_packs : pk.kind === 'event' ? (S.event?.packs || 0) : pk.kind === 'epic' ? S.me.epic_packs : S.me.legendary_packs;
     const confirmPick = async (thenNext) => {
       if (chosen == null || ov.dataset.busy) return;
       ov.dataset.busy = 1; keyHandler = null;
@@ -1536,11 +1547,11 @@ function runPicks(picks) {
       loadBoard().catch(() => {});
       if (thenNext === true) {
         if (left) { idx++; showPick(); return; }
-        if (packsAfter()) { document.removeEventListener('keydown', onKey); ov.remove(); renderHome(); openPacks(pk.kind, 1); return; }
+        if (packsAfter()) { document.removeEventListener('keydown', onKey); ov.remove(); route(); openPacks(pk.kind, 1); return; }
       }
       opts.forEach(x => { x.classList.remove('choosable', 'chosen'); x.classList.add(x === o ? 'kept' : 'gone'); });
       ov.querySelector('#pTitle').textContent = `Kept ${S.byKey[r.card.level_key].name}!`;
-      const packsLeft = pk.kind === 'normal' ? S.me.packs + S.me.bonus_packs : pk.kind === 'holo' ? S.me.holo_packs : pk.kind === 'player' ? S.me.player_packs : pk.kind === 'holo_player' ? S.me.holo_player_packs : pk.kind === 'epic' ? S.me.epic_packs : S.me.legendary_packs;
+      const packsLeft = pk.kind === 'normal' ? S.me.packs + S.me.bonus_packs : pk.kind === 'holo' ? S.me.holo_packs : pk.kind === 'player' ? S.me.player_packs : pk.kind === 'holo_player' ? S.me.holo_player_packs : pk.kind === 'event' ? (S.event?.packs || 0) : pk.kind === 'epic' ? S.me.epic_packs : S.me.legendary_packs;
       ov.querySelector('#pAct').innerHTML = left
         ? `<button class="btn primary" id="next">Next pack (${left}) <span class="kbd">Space</span></button><button class="btn light" id="cont">Done</button>`
         : `${packsLeft ? `<button class="btn primary" id="again">Open another (${packsLeft}) <span class="kbd">Space</span></button>` : ''}<button class="btn light" id="toCol">Collection</button><button class="btn light" id="cont">Done</button>`;
@@ -1637,7 +1648,7 @@ function matchQ(l, q) {
 function searchBox(id, val, ph) { return `<input class="field" id="${id}" type="search" placeholder="${ph || 'Search name, creator or #rank'}" value="${esc(val || '')}" style="width:100%;max-width:340px;margin-bottom:10px">`; }
 function collectionGrid(cards) {
   const cp = copiesOf(cards), f = S.filter;
-  let lv = S.levels.filter(l => (l.tier !== 'player' || S.me.player_cards) && (l.rank || cp[l.key] || (f.tier === 'unverified' && (l.tier === 'unverified' || l.tier === 'uplayer')) || (f.tier === 'player' && l.tier === 'player' && !l.info?.retired)) && matchQ(l, f.q));
+  let lv = S.levels.filter(l => l.tier !== 'event' && (l.tier !== 'player' || S.me.player_cards) && (l.rank || cp[l.key] || (f.tier === 'unverified' && (l.tier === 'unverified' || l.tier === 'uplayer')) || (f.tier === 'player' && l.tier === 'player' && !l.info?.retired)) && matchQ(l, f.q));
   if (f.tier === 'golden' || f.tier === 'pgold') {   // every golden: yours lit up, the rest grayed out with who has it
     const gl = S.levels.filter(l => (f.tier === 'golden' ? l.rank && TIERS.includes(l.tier) : l.tier === 'player' && S.me.player_cards && !l.info?.retired) && matchQ(l, f.q));
     const mine = l => (cp[l.key] || []).some(c => c.golden);
@@ -2268,6 +2279,7 @@ async function route(reset) {
     else if (h.startsWith('#/trades/new/')) await renderNewTrade(decodeURIComponent(h.slice(13)));
     else if (h.startsWith('#/trades')) await renderTrades();
     else if (h.startsWith('#/news')) renderNews();
+    else if (h.startsWith('#/event')) await renderEvent();
     else if (h.startsWith('#/admin')) renderAdmin();
     else renderHome();
   } catch (e) { app.innerHTML = `<div class="panel">Something went wrong: ${esc(e.message)}</div>`; }
@@ -2282,7 +2294,7 @@ async function boot() {
   app.innerHTML = '<div class="panel" style="text-align:center">Loading…</div>';
   try {
     await refreshState();
-    await Promise.all([loadLevels(), loadMyCards(), loadBoard(), loadDrops()]);
+    await Promise.all([loadLevels(), loadMyCards(), loadBoard(), loadDrops(), loadEvent()]);
     updateTopAvatar();
   } catch (e) {
     if (!S.token) { renderAuth(); return; }
@@ -2365,6 +2377,54 @@ function renderNews() {
     <ul class="wn">${c.items.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`).join('')}</div>`;
   localStorage.setItem('gacha_seen_v', SHOWN_LOG[0].v); newsDot();
 }
+// ---------------- events ----------------
+async function loadEvent() {
+  try { S.event = await rpc('event_state', {p_token: S.token}); } catch (e) { S.event = null; }
+  const a = $('#navEvent'); if (a) { a.classList.toggle('hidden', !S.event); a.innerHTML = 'Event' + (S.event && S.event.packs ? `<span class="dot">${S.event.packs}</span>` : ''); }
+  return S.event;
+}
+function evScoreOf(owned) {   // owned: [[key, holo, n, golden]] rows from the leaderboard
+  let s = 0; for (const [k, h] of owned) { const l = S.byKey[k]; if (l && l.tier === 'event' && l.info?.event === S.event?.id) s += l.points * (h ? 2 : 1); } return s;
+}
+const evRewardText = r => [r.packs && `${r.packs} pack${r.packs > 1 ? 's' : ''}`, r.holo_packs && `${r.holo_packs} holo pack${r.holo_packs > 1 ? 's' : ''}`,
+  r.player_packs && `${r.player_packs} player pack${r.player_packs > 1 ? 's' : ''}`, r.card && `◆ ${esc(S.byKey[r.card]?.name || 'event card')} (permanent card)`].filter(Boolean).join(' + ');
+async function renderEvent() {
+  await loadEvent();
+  const e = S.event;
+  if (!e) { app.innerHTML = '<div class="panel"><h2>No event right now</h2><p class="muted">Check back later.</p></div>'; return; }
+  if (!S.board.length) await loadBoard();
+  const cards = S.levels.filter(l => l.tier === 'event' && l.info?.event === e.id).sort((a, b) => TIERS.indexOf(a.info.rarity) - TIERS.indexOf(b.info.rarity) || (a.info.order ?? 0) - (b.info.order ?? 0));
+  const cp = copiesOf(S.myCards), owned = cards.filter(l => cp[l.key]).length;
+  const next = e.rewards[e.claimed], maxAt = e.rewards.length ? e.rewards[e.rewards.length - 1].at : 1;
+  const board = S.board.map(r => ({r, s: evScoreOf(r.owned)})).filter(x => x.s > 0).sort((a, b) => b.s - a.s).slice(0, 15);
+  app.innerHTML = `<div class="panel"><div class="row between"><div><h2 style="margin:0">◆ ${esc(e.name)}</h2><div class="muted" style="font-size:13px">${esc(e.description || '')}</div></div>
+      <div style="text-align:right"><div class="label">Ends in</div><b id="evEnd">--</b></div></div>
+    <div class="row" style="gap:16px;margin-top:16px;flex-wrap:wrap;align-items:center">
+      <div><div class="label">Event packs</div><div class="big" style="font-size:40px">${e.packs}<small> / ${e.pack_cap}</small></div></div>
+      <div class="row" style="gap:8px"><button class="btn primary" id="evOpen" ${e.packs ? '' : 'disabled'}>Open event pack</button><button class="btn" id="evAll" ${e.packs > 1 ? '' : 'disabled'}>Open all (${e.packs})</button></div>
+      <div class="muted" style="font-size:13px">${e.next_at ? `Next in <b id="evNext">--:--</b> · ` : 'Storage full · '}1 every ${fmtSecs(e.pack_secs)}</div>
+    </div></div>
+  <div class="panel"><h2>Rewards · <span class="muted" style="font-weight:600">${fmt(e.score)} event points</span></h2>
+    <div class="evbar"><i style="width:${Math.min(100, e.score / maxAt * 100)}%"></i></div>
+    <div class="evtrack">${e.rewards.map((r, i) => `<div class="evstep ${i < e.claimed ? 'done' : i === e.claimed ? 'next' : ''}"><b style="min-width:70px">${fmt(r.at)}</b><span style="flex:1">${evRewardText(r)}</span>
+      ${i < e.claimed ? '<span class="sdone">✓ Claimed</span>' : i === e.claimed && e.score >= r.at ? '<button class="btn primary sm" id="evClaim">Claim</button>' : ''}</div>`).join('')}</div>
+    <p class="muted" style="font-size:12px;margin:8px 0 0">Each event card you own counts once (holo = 2×). Event cards don't count toward your main score, but the rewards do.</p></div>
+  <div class="panel"><h2>Event cards · ${owned}/${cards.length}</h2>
+    <div class="grid" style="row-gap:24px">${cards.map(l => cp[l.key] ? stackHTML(l, cp[l.key]) : cardHTML(l, {missing: true})).join('')}</div></div>
+  <div class="panel"><h2>Event leaderboard</h2>${board.length ? board.map((x, i) => `<div class="feeditem"><b style="min-width:28px">${i + 1}</b><span>${esc(x.r.username)}</span><span class="spacer"></span><b>${fmt(x.s)}</b>&nbsp;<span class="muted">pts</span></div>`).join('') : '<p class="muted">Nobody has event cards yet.</p>'}</div>`;
+  $('#evOpen').onclick = () => openPacks('event', 1);
+  $('#evAll').onclick = () => openPacks('event', e.packs);
+  if ($('#evClaim')) $('#evClaim').onclick = async ev => { const b = ev.currentTarget; b.disabled = true;
+    try { const r = await rpc('claim_event_reward', {p_token: S.token}); setState(r.state); S.event = r.event; await loadMyCards(); celebrate(b, '#ff3cac', 0, 'Reward: ' + evRewardText(r.reward)); setTimeout(route, 1600); }
+    catch (er) { toast(er.message, true); b.disabled = false; } };
+}
+setInterval(() => {   // event countdowns
+  const e = S.event; if (!e) return;
+  const now = Date.now() + S.clock, fmtT = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); const d = Math.floor(s / 86400), hh = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+    return d ? `${d}d ${hh}h` : hh ? `${hh}h ${m}m` : `${m}:${String(s % 60).padStart(2, '0')}`; };
+  if ($('#evEnd')) $('#evEnd').textContent = fmtT(new Date(e.ends_at) - now);
+  if ($('#evNext') && e.next_at) { const ms = new Date(e.next_at) - now; if (ms <= 0) { e.next_at = null; if (location.hash.startsWith('#/event')) renderEvent(); else loadEvent(); } else $('#evNext').textContent = fmtT(ms); }
+}, 1000);
 // red dot on the News tab while there's an update you haven't seen
 function newsDot() { const a = $('#navNews'); if (a) a.innerHTML = 'News' + (+(localStorage.getItem('gacha_seen_v') || 0) < SHOWN_LOG[0].v ? '<span class="dot">!</span>' : ''); }
 // entries with a flag only show once that feature is switched on in the server settings
