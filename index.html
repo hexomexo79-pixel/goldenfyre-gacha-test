@@ -630,6 +630,7 @@ function setState(st) {
   $('#pillCap').textContent = st.pack_cap;
   updateTopAvatar();
   $('#navAdmin').classList.toggle('hidden', !st.is_admin);
+  if (st.is_admin && !S._sgChecked) { S._sgChecked = true; setTimeout(checkSuggestions, 1500); setInterval(checkSuggestions, 120000); }
 }
 async function refreshState() { setState(await rpc('get_state', {p_token: S.token})); }
 
@@ -947,7 +948,7 @@ function showLevel(key) {
     ${own && !['unverified', 'player', 'uplayer', 'eventreward'].includes(l.tier) ? (() => { const n = S.myCards.filter(c => c.level_key === key && !c.holo && !c.locked).length, need = craftCost(l.tier);
       return `<div style="margin-top:12px"><button class="btn sm ${n >= need ? 'primary' : ''}" id="craft" ${n >= need ? '' : 'disabled'}>✦ Combine ${need} copies into a holo</button> <span class="muted" style="font-size:12px">${n}/${need} unlocked normal copies</span></div>`; })() : ''}
     ${ownersHTML(key)}
-    <button class="btn" style="margin-top:12px" onclick="this.closest('.modal').remove()">Close</button></div>`;
+    <div class="row" style="margin-top:12px;gap:8px"><button class="btn" onclick="this.closest('.modal').remove()">Close</button>${l.tier !== 'uplayer' && l.tier !== 'eventreward' ? `<button class="btn sm" style="margin-left:auto" onclick="suggestEdit('${esc(key)}')">✎ Suggest an edit</button>` : ''}</div></div>`;
   m.querySelectorAll('[data-tw]').forEach(b => b.onclick = () => { m.remove(); go(tradeBase() + '/new/' + encodeURIComponent(b.dataset.tw)); });
   const hb = m.querySelector('#hdTrade');
   if (hb) hb.onclick = async () => {   // (async so it can reload the event)
@@ -2005,6 +2006,81 @@ async function renderPlayer(name) {
   };
   draw();
 }
+// ---------------- suggested edits ----------------
+// shrink a screenshot to a 320x200 thumbnail (cropped to fill)
+function shrinkThumb(file) {
+  return new Promise((res, rej) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const c = document.createElement('canvas'); c.width = 320; c.height = 200;
+      const r = Math.max(320 / img.width, 200 / img.height), w = img.width * r, h = img.height * r;
+      c.getContext('2d').drawImage(img, (320 - w) / 2, (200 - h) / 2, w, h);
+      URL.revokeObjectURL(url); let d = c.toDataURL('image/webp', 0.8); if (!d.startsWith('data:image/webp')) d = c.toDataURL('image/jpeg', 0.82); res(d);
+    };
+    img.onerror = () => rej(new Error('Could not read that image'));
+    img.src = url;
+  });
+}
+const evCreatorOf = l => ((l.info?.desc || '').match(/^By (.+?) ·/) || [])[1] || '';
+function editFields(l) {   // what can be suggested for this card
+  const ev = l.tier === 'event';
+  return {image: !(ev && l.info?.kind === 'player') && l.tier !== 'player', verifier: !ev && l.tier !== 'player', creators: !ev && l.tier !== 'player', desc: ev || l.tier === 'player'};
+}
+function suggestEdit(key) {
+  const l = S.byKey[key]; if (!l) return;
+  document.querySelectorAll('.modal').forEach(x => x.remove());
+  const f = editFields(l), m = document.createElement('div'); m.className = 'modal';
+  m.innerHTML = `<div class="box"><h2 style="margin:0 0 4px">✎ Suggest an edit</h2><p class="muted" style="margin:0 0 12px;font-size:13px">For <b>${esc(l.name)}</b>. An admin checks it before it goes in. Only fill in what's wrong or missing.</p>
+    ${f.image ? `<div class="label">Thumbnail</div><div class="row" style="gap:10px;margin-bottom:12px"><div class="thumb" style="width:128px" id="sgPrev">${thumb(l)}</div><input type="file" accept="image/*" id="sgImg"></div>` : ''}
+    ${f.verifier ? `<div class="label">Verifier</div><input class="field" id="sgVer" placeholder="${esc(l.verifier || 'Who verified it?')}" style="width:100%;margin-bottom:12px">` : ''}
+    ${f.creators ? `<div class="label">Creator(s), comma separated</div><input class="field" id="sgCr" placeholder="${esc(creatorsOf(l).join(', ') || 'Who made it?')}" style="width:100%;margin-bottom:12px">` : ''}
+    ${f.desc ? `<div class="label">Description</div><input class="field" id="sgDesc" placeholder="${esc(l.info?.desc || '')}" style="width:100%;margin-bottom:12px">` : ''}
+    <div class="label">Note for the admins (optional)</div><input class="field" id="sgNote" placeholder="e.g. where the info is from" style="width:100%;margin-bottom:14px">
+    <div class="row" style="gap:8px"><button class="btn" onclick="this.closest('.modal').remove()">Cancel</button><button class="btn primary" id="sgSend" style="margin-left:auto">Send to admins</button></div></div>`;
+  document.body.appendChild(m);
+  let img = null;
+  const fi = m.querySelector('#sgImg');
+  if (fi) fi.onchange = async () => { try { img = await shrinkThumb(fi.files[0]); m.querySelector('#sgPrev').innerHTML = `<img src="${img}" alt="">`; } catch (e) { toast(e.message, true); } };
+  m.querySelector('#sgSend').onclick = async e => {
+    const v = id => m.querySelector(id)?.value.trim() || '';
+    const changes = {verifier: v('#sgVer'), creators: v('#sgCr'), desc: v('#sgDesc'), note: v('#sgNote')};
+    if (img) changes.image = img;
+    if (!img && !changes.verifier && !changes.creators && !changes.desc) { toast('Fill in at least one thing to change', true); return; }
+    e.currentTarget.disabled = true;
+    try { await rpc('suggest_edit', {p_token: S.token, p_level_key: key, p_changes: changes}); m.remove(); toast('Sent! An admin will check it.'); }
+    catch (er) { toast(er.message, true); e.currentTarget.disabled = false; }
+  };
+}
+async function adminSuggestionsHTML() {
+  let list = []; try { list = await rpc('admin_suggestions', {p_token: S.token}); } catch (e) { return `<p class="muted">${esc(e.message)}</p>`; }
+  S.sgCount = list.length; adminDot();
+  if (!list.length) return '<p class="muted">Nothing waiting.</p>';
+  return list.map(s => { const l = S.byKey[s.level_key], c = s.changes || {}, f = l ? editFields(l) : {};
+    const inp = (k, label, cur) => c[k] != null || f[k] ? `<div class="label">${label}${cur ? ` <span class="muted" style="text-transform:none;font-weight:500">· now: ${esc(cur)}</span>` : ''}</div><input class="field" data-k="${k}" value="${esc(c[k] || '')}" placeholder="(no change)" style="width:100%;margin-bottom:8px">` : '';
+    return `<div class="sgitem" data-id="${s.id}" style="border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px">
+      <div class="row" style="gap:12px;align-items:flex-start">${l ? `<div style="width:110px;flex:none">${cardHTML(l, {mini: false})}</div>` : ''}
+      <div style="flex:1;min-width:220px"><b>${esc(l?.name || s.level_key)}</b> <span class="muted">· from <b>${esc(s.username || '?')}</b> · ${new Date(s.created_at).toLocaleString()}</span>
+        ${c.note ? `<div style="margin:6px 0;font-size:13px">💬 ${esc(c.note)}</div>` : ''}
+        ${c.image ? `<div class="label" style="margin-top:8px">New thumbnail</div><div class="row" style="gap:8px;margin-bottom:8px"><img src="${esc(c.image)}" style="width:192px;border-radius:8px" alt=""><label class="row" style="gap:4px"><input type="checkbox" data-img checked> use it</label></div>` : ''}
+        ${inp('verifier', 'Verifier', l?.verifier)}${inp('creators', 'Creator(s)', l ? creatorsOf(l).join(', ') : '')}${inp('desc', 'Description', l?.info?.desc)}
+        <div class="row" style="gap:8px;margin-top:6px"><button class="btn primary sm" data-acc>Accept${c.image ? '' : ''}</button><button class="btn sm" data-rej>Reject</button><span class="muted" style="font-size:12px">You can edit the text before accepting. Empty boxes are left as they are.</span></div></div></div></div>`; }).join('');
+}
+function bindSuggestions(redraw) {
+  document.querySelectorAll('.sgitem').forEach(el => {
+    const id = +el.dataset.id;
+    el.querySelector('[data-acc]').onclick = async () => {
+      const ch = {}; el.querySelectorAll('input[data-k]').forEach(i => { if (i.value.trim()) ch[i.dataset.k] = i.value.trim(); });
+      const im = el.querySelector('img[src^="data:"]'); if (im && el.querySelector('[data-img]')?.checked) ch.image = im.getAttribute('src');
+      if (!Object.keys(ch).length) { toast('Nothing to put in. Reject it instead', true); return; }
+      try { await rpc('admin_review_suggestion', {p_token: S.token, p_id: id, p_accept: true, p_changes: ch}); toast('Put in!'); await loadLevels(); redraw(); } catch (e) { toast(e.message, true); }
+    };
+    el.querySelector('[data-rej]').onclick = async () => {
+      try { await rpc('admin_review_suggestion', {p_token: S.token, p_id: id, p_accept: false}); toast('Rejected'); redraw(); } catch (e) { toast(e.message, true); }
+    };
+  });
+}
+function adminDot() { const a = $('#navAdmin'); if (a) a.innerHTML = 'Admin' + (S.sgCount ? `<span class="dot">${S.sgCount}</span>` : ''); }
+async function checkSuggestions() { if (!S.me?.is_admin) return; try { S.sgCount = (await rpc('admin_suggestions', {p_token: S.token})).length; adminDot(); } catch (e) {} }
 // shrink an uploaded image to a 128x128 square
 function shrinkImage(file) {
   return new Promise((res, rej) => {
@@ -2208,7 +2284,7 @@ function bindSqlTemplates() {
 }
 function renderAdmin() {
   if (!S.me.is_admin) { go('#/'); return; }
-  app.innerHTML = `<div class="panel"><h2>Admin</h2>
+  app.innerHTML = `<div class="panel"><h2>Suggested edits</h2><div id="sgList"><span class="muted">Loading…</span></div></div><div class="panel"><h2>Admin</h2>
     ${sqlTemplatesHTML()}
     <hr style="border-color:var(--line);margin:24px 0">
     <h3>Sync with the demonlist</h3>
@@ -2244,6 +2320,7 @@ function renderAdmin() {
     <div class="row"><input class="field" id="rUser" placeholder="username"><input class="field" id="rPin" placeholder="new PIN" maxlength="4"><button class="btn sm" id="rGo">Reset</button></div>
   </div>`;
   bindSqlTemplates();
+  const sgDraw = async () => { const el = $('#sgList'); if (!el) return; el.innerHTML = await adminSuggestionsHTML(); bindSuggestions(sgDraw); }; sgDraw();
   if ($('#upNow')) $('#upNow').onclick = async () => { try { await rpc('admin_uplayer_now', {p_token: S.token}); toast('The next player pack anyone opens gets one'); } catch (e) { toast(e.message, true); } };
   $('#sync').onclick = async () => {
     $('#sync').disabled = true; const msg = $('#syncMsg');
