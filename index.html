@@ -2562,8 +2562,8 @@ async function renderEvent(page = 'packs') {
     const big = cr.filter(s => s.keys.length >= 4), small = cr.filter(s => s.keys.length < 4);
     app.innerHTML = `<div class="panel"><h2>Event sets ${holoToggle(() => renderEvent('sets'))}</h2><p class="muted" style="margin:-4px 0 12px;font-size:13px">Own every card in a set and its bonus is added to your Stars automatically. Own the whole set in holo and you get the bonus again.</p>
         ${sets.length ? `<div class="sets">${sets.map(tile).join('')}</div>` : '<p class="muted">Coming soon.</p>'}</div>
-      <div class="panel"><h2>Creators · ${cr.filter(done).length}/${cr.length}</h2>
-        ${big.length ? `<div class="crows">${big.map(crRow).join('')}</div>` : ''}${small.length ? `<div class="sets" style="margin-top:14px">${small.map(crBox).join('')}</div>` : ''}</div>`;
+      ${cr.length ? `<div class="panel"><h2>Creators · ${cr.filter(done).length}/${cr.length}</h2>
+        ${big.length ? `<div class="crows">${big.map(crRow).join('')}</div>` : ''}${small.length ? `<div class="sets" style="margin-top:14px">${small.map(crBox).join('')}</div>` : ''}</div>` : ''}`;
     return;
   }
   if (page === 'board') {
