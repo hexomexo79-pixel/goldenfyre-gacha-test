@@ -658,6 +658,8 @@ function creatorStatus(c, own, claimed = []) {
   return {c, have, n, full, bonus, nextGain, pct: Math.round((have / n) ** 2 * 100), done: have >= n, claimed: isClaimed, redeemable: have >= n && !isClaimed, missing: c.keys.filter(k => !own[k]),
           holoHave, holoDone: holoHave === n, holoClaimed: claimed.includes('✦' + c.key)};
 }
+const REWARD_SHARE = {easy: 0.10, normal: 0.20, hard: 0.30, harder: 0.40, insane: 0.50};
+const rewardShare = l => REWARD_SHARE[l.info?.face] ?? 0.10;
 function scoreInfo(own, claimed = [], cclaimed = []) {
   const byTier = {}; let base = 0, holoBonus = 0, uniq = 0, holos = 0, goldens = 0, goldBonus = 0;
   for (const [k, o] of Object.entries(own)) {
@@ -672,6 +674,12 @@ function scoreInfo(own, claimed = [], cclaimed = []) {
     let best = 0;
     for (const [k, o] of Object.entries(own)) { const l = S.byKey[k]; if (l && l.tier !== 'unverified') best = Math.max(best, l.points * lvMult(o)); }   // copies your best card's full value (golden 10x included)
     const now = byTier.unverified.n * best; base += now - byTier.unverified.pts; byTier.unverified.pts = now;
+  }
+  if (byTier.eventreward) {   // event reward cards: their flat points + a share of your best level card (Easy 10% ... Insane 50%)
+    let best = 0, share = 0;
+    for (const [k, o] of Object.entries(own)) { const l = S.byKey[k]; if (l && TIERS.includes(l.tier)) best = Math.max(best, l.points * lvMult(o)); }
+    for (const k of Object.keys(own)) { const l = S.byKey[k]; if (l && l.tier === 'eventreward') share += rewardShare(l); }
+    const now = byTier.eventreward.pts + Math.round(best * share); base += now - byTier.eventreward.pts; byTier.eventreward.pts = now;
   }
   // player cards: +25% on every owned level that player verified or created (one copy is enough)
   let playerBonus = 0, players = 0;
@@ -797,7 +805,7 @@ function cardHTML(l, o = {}) {
     ${o.mini ? '' : `<div class="codds">${cardOdds(l, o)}</div>`}
     <div class="nm">${esc(l.name)}</div>
     <div class="meta">${l.tier === 'event' || l.tier === 'eventreward' ? esc(l.info?.desc || '') : l.tier === 'uplayer' ? '<b class="abil">✦ ???</b> · Who is this?' : l.tier === 'player' ? `Beat ${pInfo(l).beaten.length} · Verified ${pInfo(l).verified.length}` : `${l.tier === 'unverified' ? (ABILITIES[l.key] ? `<b class="abil">✦ ${esc(ABILITIES[l.key].name)}</b> · ${esc(ABILITIES[l.key].desc)}` : 'Not verified yet') : `Verified by ${esc(l.verifier || '?')}`}<br>By ${esc(creatorsOf(l).join(', ') || '?')}`}</div>
-    <div class="pts">${l.tier === 'event' ? fmt(l.points * (o.golden ? 5 : o.holo ? 2 : 1)) + ' ★' + (o.golden ? ' ★' : o.holo ? ' ✦' : '') : l.tier === 'eventreward' ? fmt(l.points) + ' pts · +10% ★' : l.tier === 'uplayer' ? '= your best player' : l.tier === 'player' ? (o.golden ? `★ boosts ×${RULES.playerGoldMult}` : o.holo ? '★ boosts ×2' : '★ boosts levels') : l.tier === 'unverified' ? '= your best card' : fmt(l.points * lvMult(o)) + ' pts' + (o.golden ? ' ★' : o.holo ? ' ✦' : '')}</div>
+    <div class="pts">${l.tier === 'event' ? fmt(l.points * (o.golden ? 5 : o.holo ? 2 : 1)) + ' ★' + (o.golden ? ' ★' : o.holo ? ' ✦' : '') : l.tier === 'eventreward' ? fmt(l.points) + ' + ' + Math.round(rewardShare(l) * 100) + '% of best' : l.tier === 'uplayer' ? '= your best player' : l.tier === 'player' ? (o.golden ? `★ boosts ×${RULES.playerGoldMult}` : o.holo ? '★ boosts ×2' : '★ boosts levels') : l.tier === 'unverified' ? '= your best card' : fmt(l.points * lvMult(o)) + ' pts' + (o.golden ? ' ★' : o.holo ? ' ✦' : '')}</div>
     ${o.golden ? '<div class="holotag goldtag">★ GOLDEN</div>' : o.holo && l.tier !== 'unverified' ? '<div class="holotag">✦ HOLO</div>' : ''}
   </div>`;
 }
@@ -904,7 +912,7 @@ function showLevel(key) {
     <p><b>${esc(l.name)}</b>: ${l.tier === 'event' ? `◆ EVENT CARD · ${esc((l.info?.rarity || '').toUpperCase())}<br><span class="muted">${esc(l.info?.desc || '')}</span>` : l.tier === 'eventreward' ? `◆ EVENT REWARD CARD<br><span class="muted">${esc(l.info?.desc || '')}</span>` : l.tier === 'unverified' ? `UNVERIFIED · only 1 exists${l.info && l.info.placement ? ' · expected ' + esc(l.info.placement) : ''}${l.info && l.info.layout ? `<br><span class="muted">Layout ${esc(l.info.layout)} · Deco ${esc(l.info.deco || '?')} · Verifying ${esc(l.info.verify || '?')}</span>` : ''}${ABILITIES[l.key] ? `<br><b class="abil">✦ ${esc(ABILITIES[l.key].name)}</b> (${esc(ABILITIES[l.key].who)}): ${esc(ABILITIES[l.key].desc)}` : ''}${unvOwner(l.key) ? `<br>Owned by <b>${esc(unvOwner(l.key))}</b>` : '<br><span class="muted">Not found yet</span>'}` : l.rank ? `#${l.rank} on the list, ${l.tier.toUpperCase()}` : 'no longer on the list (vaulted)'}<br>
     ${l.tier === 'event' || l.tier === 'eventreward' ? '' : `<span class="muted">Created by ${esc(creatorsOf(l).join(', ') || '?')} · Verified by ${esc(l.verifier || '?')}</span>`}</p>
     <p>You own: <b>${own ? own.count : 0}</b> ${own && own.holo ? `(${own.holo} holo)` : ''}<br>
-    <span class="muted">${l.tier === 'event' ? `Worth ${fmt(l.points)} ★ Stars, ${fmt(l.points * 2)} ★ as holo${S.me.golden_cards ? `, ${fmt(l.points * 5)} ★ golden` : ''} · ${cardOdds(l)}` : l.tier === 'eventreward' ? `Worth ${fmt(l.points)} pts in the main game, and +10% ★ Stars in its event` : `Worth ${fmt(l.points)} pts, or ${fmt(l.points * RULES.holoMult)} as holo`}${S.me.golden_cards && l.rank ? `, ${fmt(l.points * RULES.goldMult)} golden` : ''}</span>
+    <span class="muted">${l.tier === 'event' ? `Worth ${fmt(l.points)} ★ Stars, ${fmt(l.points * 2)} ★ as holo${S.me.golden_cards ? `, ${fmt(l.points * 5)} ★ golden` : ''} · ${cardOdds(l)}` : l.tier === 'eventreward' ? `Worth ${fmt(l.points)} pts + ${Math.round(rewardShare(l) * 100)}% of your best level card in the main game, and +10% ★ Stars in its event` : `Worth ${fmt(l.points)} pts, or ${fmt(l.points * RULES.holoMult)} as holo`}${S.me.golden_cards && l.rank ? `, ${fmt(l.points * RULES.goldMult)} golden` : ''}</span>
     ${S.me.golden_cards && l.rank ? `<br><span class="muted">${goldOwner(key) ? `★ Golden owned by <b class="goldtxt">${esc(goldOwner(key))}</b>` : '★ Golden not found yet'}</span>` : ''}</p>
     ${l.video_id ? `<p><a href="https://youtu.be/${esc(l.video_id)}" target="_blank" rel="noopener">Watch verification ↗</a></p>` : ''}
     ${own ? `<div class="locks"><div class="label" style="margin-bottom:6px">Your copies · locked ones can't be traded</div>${S.myCards.filter(c => c.level_key === key).sort((a, b) => !!b.golden - !!a.golden || b.holo - a.holo).map((c, i) =>
