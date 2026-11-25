@@ -94,6 +94,7 @@ h3{margin:0 0 10px;font-size:16px}
 .timers>div+div{margin-top:12px}
 .packs.two .row{flex-wrap:nowrap;gap:8px}.packs.two .row .btn{padding-left:14px;padding-right:14px;white-space:nowrap}
 @media (max-width:820px){.packs.two{grid-template-columns:1fr}.packs.two>div:first-child{text-align:center}}
+.pack.event{background:linear-gradient(165deg,#022c27 0%,#0f766e 38%,#14b8a6 72%,#a7f3d0 100%)}
 .pack.legendary{background:linear-gradient(165deg,#2a1500,#8a4b06 40%,#f59e0b 75%,#fff1b8)}
 .pack .pk-face{width:70px;height:70px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.5))}
 .pack .pk-title{font-weight:900;font-size:16px;margin-top:10px;letter-spacing:1px;line-height:1}
@@ -177,7 +178,7 @@ a.chip{text-decoration:none}a.chip:not(.on){color:inherit}a.chip.on .muted{color
 .noimg.evimg{font-size:clamp(28px,30cqw,54px);line-height:1}
 .card.ev{--frame:linear-gradient(135deg,#14b8a6,#4ade80,#0f766e)}
 .card.evr{--frame:linear-gradient(135deg,#14b8a6,#ffd36b,#4ade80)}
-.evtrack{display:grid;gap:8px;margin-top:10px}
+.evtrack{display:grid;gap:8px;margin-top:10px}.evstep .card.mini .nm,.evstep .card.mini .ctop{display:none}.evstep .card.mini{padding:4px}
 .evstep{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:8px 12px}
 .evstep.done{opacity:.55}.evstep.next{border-color:#ff3cac;box-shadow:0 0 14px #ff3cac44}
 .evbar{height:10px;border-radius:99px;background:#ffffff14;overflow:hidden;margin-top:8px}.evbar i{display:block;height:100%;background:linear-gradient(90deg,#ff3cac,#784ba0,#2b86c5)}
@@ -760,6 +761,7 @@ function thumb(l) {
   if (l.tier === 'event' || l.tier === 'eventreward') {   // event cards: teal-green tile with the first letter (like player cards)
     if (l.image) return `<img loading="lazy" src="${esc(l.image)}" alt="">`;
     if (l.video_id) return `<img loading="lazy" src="https://i.ytimg.com/vi/${esc(l.video_id)}/mqdefault.jpg" alt="">`;
+    if (l.tier === 'eventreward' && l.info?.color) return `<div class="pimg" style="background:linear-gradient(135deg,${esc(l.info.color)},#0b3b35)">${esc(l.name.slice(0, 1).toUpperCase())}</div>`;
     const hu = 160 + hueOf(l.key) % 30;
     return `<div class="pimg" style="background:linear-gradient(135deg,hsl(${hu} 70% 42%),hsl(${(hu + 25) % 360} 75% 22%))">${esc(l.name.replace(/[^A-Za-z0-9]/g, '').slice(0, 1).toUpperCase() || '◆')}</div>`;
   }
@@ -782,7 +784,7 @@ function cardHTML(l, o = {}) {
     ${o.mini ? '' : `<div class="codds">${cardOdds(l, o)}</div>`}
     <div class="nm">${esc(l.name)}</div>
     <div class="meta">${l.tier === 'event' || l.tier === 'eventreward' ? esc(l.info?.desc || '') : l.tier === 'uplayer' ? '<b class="abil">✦ ???</b> · Who is this?' : l.tier === 'player' ? `Beat ${pInfo(l).beaten.length} · Verified ${pInfo(l).verified.length}` : `${l.tier === 'unverified' ? (ABILITIES[l.key] ? `<b class="abil">✦ ${esc(ABILITIES[l.key].name)}</b> · ${esc(ABILITIES[l.key].desc)}` : 'Not verified yet') : `Verified by ${esc(l.verifier || '?')}`}<br>By ${esc(creatorsOf(l).join(', ') || '?')}`}</div>
-    <div class="pts">${l.tier === 'event' ? fmt(l.points * (o.holo ? 2 : 1)) + ' ev pts' + (o.holo ? ' ✦' : '') : l.tier === 'eventreward' ? fmt(l.points) + ' pts' : l.tier === 'uplayer' ? '= your best player' : l.tier === 'player' ? (o.golden ? `★ boosts ×${RULES.playerGoldMult}` : o.holo ? '★ boosts ×2' : '★ boosts levels') : l.tier === 'unverified' ? '= your best card' : fmt(l.points * lvMult(o)) + ' pts' + (o.golden ? ' ★' : o.holo ? ' ✦' : '')}</div>
+    <div class="pts">${l.tier === 'event' ? fmt(l.points * (o.holo ? 2 : 1)) + ' ★' + (o.holo ? ' ✦' : '') : l.tier === 'eventreward' ? fmt(l.points) + ' pts · +10% ★' : l.tier === 'uplayer' ? '= your best player' : l.tier === 'player' ? (o.golden ? `★ boosts ×${RULES.playerGoldMult}` : o.holo ? '★ boosts ×2' : '★ boosts levels') : l.tier === 'unverified' ? '= your best card' : fmt(l.points * lvMult(o)) + ' pts' + (o.golden ? ' ★' : o.holo ? ' ✦' : '')}</div>
     ${o.golden ? '<div class="holotag goldtag">★ GOLDEN</div>' : o.holo && l.tier !== 'unverified' ? '<div class="holotag">✦ HOLO</div>' : ''}
   </div>`;
 }
@@ -977,8 +979,8 @@ async function doLogout() {
 
 // ---------------- home ----------------
 function packHTML(kind = 'normal', cls = '', style = '') {
-  const label = {normal: 'DEMON PACK', epic: 'EPIC PACK', legendary: 'LEGENDARY', holo: 'HOLO PACK', player: 'PLAYER PACK', holo_player: 'HOLO PLAYER'}[kind];
-  return `<div class="pack ${kind === 'normal' ? '' : kind} ${cls}" style="${style}"><img class="pk-face" src="${LOGO}" alt=""><div class="pk-title">GOLDENFYRE</div><div class="pk-kind">${label}</div><div class="pk-sub">PICK 1 OF ${kind === 'player' || kind === 'holo_player' ? 3 : S.me.cards_per_pack}</div></div>`;
+  const label = {normal: 'DEMON PACK', epic: 'EPIC PACK', legendary: 'LEGENDARY', holo: 'HOLO PACK', player: 'PLAYER PACK', holo_player: 'HOLO PLAYER', event: 'EVENT PACK'}[kind];
+  return `<div class="pack ${kind === 'normal' ? '' : kind} ${cls}" style="${style}"><img class="pk-face" src="${LOGO}" alt=""><div class="pk-title">GOLDENFYRE</div><div class="pk-kind">${label}</div><div class="pk-sub">PICK 1 OF ${['player', 'holo_player', 'event'].includes(kind) ? 3 : S.me.cards_per_pack}</div></div>`;
 }
 // Small "Pack odds" box at the bottom of the Packs page (worked out from the live settings)
 function oddsHTML() {
@@ -1382,7 +1384,7 @@ let busy = false;
 async function openPacks(kind, count) {
   if (busy) return; busy = true;
   const top = document.querySelector(kind === 'player' ? '.pstack .pack:last-child' : '.stack:not(.pstack) .pack:last-child');
-  if (top && (kind === 'normal' || kind === 'player')) top.classList.add('tearing');
+  if (top && ['normal', 'player', 'event'].includes(kind)) top.classList.add('tearing');
   document.querySelectorAll('main button').forEach(b => b.disabled = true);
   let r;
   try { [r] = await Promise.all([kind === 'event' ? rpc('open_event_packs', {p_token: S.token, p_count: count}) : rpc('open_packs', {p_token: S.token, p_kind: kind, p_count: count}), sleep(650)]); }
@@ -2417,14 +2419,20 @@ async function loadEvent() {
   const a = $('#navEvent'); if (a) { a.classList.toggle('hidden', !S.event); a.innerHTML = '◆ Event' + (S.event && S.event.packs ? `<span class="dot">${S.event.packs}</span>` : ''); }
   return S.event;
 }
-function evScoreOf(owned) {   // owned: [[key, holo, n, golden]] rows from the leaderboard (cards + finished sets)
-  let s = 0; const has = new Set();
-  for (const [k, h] of owned) { const l = S.byKey[k]; if (l && l.tier === 'event' && l.info?.event === S.event?.id) { s += l.points * (h ? 2 : 1); has.add(k); } }
-  for (const st of S.evSets || []) if (st.keys.every(k => has.has(k))) s += st.bonus;
-  return s;
+function evInfo(owned) {   // owned: [[key, holo, n, golden]] rows. Returns the Stars breakdown for the current event
+  const ev = S.event?.id, has = new Set(); let cards = 0, holo = 0, n = 0, holos = 0, rewards = 0;
+  for (const [k, h] of owned) { const l = S.byKey[k]; if (!l || l.info?.event !== ev) continue;
+    if (l.tier === 'event') { cards += l.points; if (h) { holo += l.points; holos++; } n++; has.add(k); }
+    if (l.tier === 'eventreward') rewards++; }
+  const boost = Math.round((cards + holo) * 0.1 * rewards);
+  const sets = (S.evSets || []).filter(st => st.keys.every(k => has.has(k)));
+  const setBonus = sets.reduce((s, st) => s + st.bonus, 0);
+  return {n, holos, cards, holo, rewards, boost, sets: sets.length, setBonus, total: cards + holo + boost + setBonus};
 }
-const evRewardText = r => [r.packs && `${r.packs} pack${r.packs > 1 ? 's' : ''}`, r.holo_packs && `${r.holo_packs} holo pack${r.holo_packs > 1 ? 's' : ''}`,
-  r.player_packs && `${r.player_packs} player pack${r.player_packs > 1 ? 's' : ''}`, r.card && `◆ ${esc(S.byKey[r.card]?.name || 'event card')} (permanent card)`].filter(Boolean).join(' + ');
+function evScoreOf(owned) { return evInfo(owned).total; }
+const myOwnedRows = () => { const o = ownership(S.myCards); return Object.entries(o).map(([k, x]) => [k, !!x.holo, x.count, !!x.golden]); };
+const evRewardText = r => [r.card && `<b>${esc(S.byKey[r.card]?.name || 'reward')} card</b>`, r.packs && `${r.packs} pack${r.packs > 1 ? 's' : ''}`, r.holo_packs && `${r.holo_packs} holo pack${r.holo_packs > 1 ? 's' : ''}`,
+  r.player_packs && `${r.player_packs} player pack${r.player_packs > 1 ? 's' : ''}`].filter(Boolean).join(' + ');
 async function renderEvent(page = 'packs') {
   await loadEvent();
   const e = S.event;
@@ -2432,51 +2440,91 @@ async function renderEvent(page = 'packs') {
     app.innerHTML = '<div class="panel"><h2>No event right now</h2><p class="muted">Check back later.</p></div>'; return; }
   if (!S.board.length) await loadBoard();
   const cards = S.levels.filter(l => l.tier === 'event' && l.info?.event === e.id).sort((a, b) => TIERS.indexOf(a.info.rarity) - TIERS.indexOf(b.info.rarity) || (a.info.order ?? 0) - (b.info.order ?? 0));
-  const cp = copiesOf(S.myCards), owned = cards.filter(l => cp[l.key]).length;
-  const next = e.rewards[e.claimed], maxAt = e.rewards.length ? e.rewards[e.rewards.length - 1].at : 1;
-  const board = S.board.map(r => ({r, s: evScoreOf(r.owned)})).filter(x => x.s > 0).sort((a, b) => b.s - a.s).slice(0, 50);
-  const head = `<div class="panel"><div class="row between"><div><h2 style="margin:0">◆ ${esc(e.name)}</h2><div class="muted" style="font-size:13px">${esc(e.description || '')}</div></div>
-      <div style="text-align:right"><div class="label">Ends in</div><b id="evEnd">--</b></div></div>
-    <div class="row" style="gap:16px;margin-top:16px;flex-wrap:wrap;align-items:center">
-      <div><div class="label">Event packs</div><div class="big" style="font-size:40px">${e.packs}<small> / ${e.pack_cap}</small></div></div>
-      <div class="row" style="gap:8px"><button class="btn primary" id="evOpen" ${e.packs ? '' : 'disabled'}>Open event pack</button><button class="btn" id="evAll" ${e.packs > 1 ? '' : 'disabled'}>Open all (${e.packs})</button></div>
-      <div class="muted" style="font-size:13px">${e.next_at ? `Next in <b id="evNext">--:--</b> · ` : 'Storage full · '}1 every ${fmtSecs(e.pack_secs)}</div>
-    </div></div>
-  <div class="panel"><h2>Rewards · <span class="muted" style="font-weight:600">${fmt(e.score)} event points</span></h2>
-    <div class="evbar"><i style="width:${Math.min(100, e.score / maxAt * 100)}%"></i></div>
-    <div class="evtrack">${e.rewards.map((r, i) => `<div class="evstep ${i < e.claimed ? 'done' : i === e.claimed ? 'next' : ''}"><b style="min-width:70px">${fmt(r.at)}</b><span style="flex:1">${evRewardText(r)}</span>
-      ${i < e.claimed ? '<span class="sdone">✓ Claimed</span>' : i === e.claimed && e.score >= r.at ? '<button class="btn primary sm" id="evClaim">Claim</button>' : ''}</div>`).join('')}</div>
-    <p class="muted" style="font-size:12px;margin:8px 0 0">Each event card you own counts once (holo = 2×), plus bonuses from finished event sets. Event cards don't count toward your main score, but the rewards do.</p></div>`;
+  const cp = copiesOf(S.myCards), own = ownership(S.myCards), owned = cards.filter(l => cp[l.key]).length;
+  const maxAt = e.rewards.length ? e.rewards[e.rewards.length - 1].at : 1;
+  const st = n => `${fmt(n)} ★ Stars`;
+
   if (page === 'collection') {
     S.evFilter = S.evFilter || 'all';
     const vis = cards.filter(l => S.evFilter === 'all' || (S.evFilter === 'owned') === !!cp[l.key]);
-    app.innerHTML = `<div class="panel"><div class="row between"><h2 style="margin:0">Event collection · ${owned}/${cards.length}</h2><span class="muted">${fmt(e.score)} event points</span></div>
+    const rw = S.levels.filter(l => l.tier === 'eventreward' && l.info?.event === e.id);
+    app.innerHTML = `<div class="panel"><div class="row between"><h2 style="margin:0">Event collection · ${owned}/${cards.length}</h2><span class="muted">${st(e.score)}</span></div>
       <div class="chips" style="margin-top:12px">${[['all', 'All'], ['owned', 'Owned'], ['missing', 'Missing']].map(([v, t]) => `<button class="chip ${S.evFilter === v ? 'on' : ''}" data-evf="${v}">${t}</button>`).join('')}</div>
-      <div class="grid" style="row-gap:24px">${vis.map(l => cp[l.key] ? stackHTML(l, cp[l.key]) : cardHTML(l, {missing: true})).join('') || '<p class="muted">Nothing here.</p>'}</div></div>`;
+      <div class="grid" style="row-gap:24px">${vis.map(l => cp[l.key] ? stackHTML(l, cp[l.key]) : cardHTML(l, {missing: true})).join('') || '<p class="muted">Nothing here.</p>'}</div></div>
+      ${rw.length ? `<div class="panel"><h2>Reward cards · ${rw.filter(l => own[l.key]).length}/${rw.length}</h2><p class="muted" style="margin:-4px 0 12px;font-size:13px">From the reward track. They count in your main score, and each one gives +10% Stars here.</p>
+        <div class="grid">${rw.map(l => cardHTML(l, {missing: !own[l.key]})).join('')}</div></div>` : ''}`;
     document.querySelectorAll('[data-evf]').forEach(b => b.onclick = () => { S.evFilter = b.dataset.evf; renderEvent('collection'); });
     return;
   }
   if (page === 'sets') {
-    const own = ownership(S.myCards);
-    const tile = st => { const have = st.keys.filter(k => own[k]).length, done = have === st.keys.length;
-      return `<div class="stile ${done ? 'won' : ''}" style="--sc:#2dd4bf"><div class="stin"><div class="row between"><b class="sname">${st.kind === 'creator' ? 'By ' : ''}${esc(st.name)}</b><span class="scount">${have}/${st.keys.length}</span></div>
-        ${minisHTML(st.keys, own)}<div class="row between" style="gap:6px">${done ? `<span class="sdone">✓ Done · +${fmt(st.bonus)} event pts</span>` : `<span class="saway">${st.keys.length - have} away</span><span class="muted">+${fmt(st.bonus)} event pts</span>`}</div></div></div>`; };
-    const sets = (S.evSets || []).filter(s => s.kind !== 'creator'), cr = (S.evSets || []).filter(s => s.kind === 'creator');
-    const ord = a => [...a].sort((x, y) => (y.keys.every(k => own[k])) - (x.keys.every(k => own[k])) || x.keys.filter(k => !own[k]).length - y.keys.filter(k => !own[k]).length);
-    app.innerHTML = `<div class="panel"><h2>Event sets</h2><p class="muted" style="margin:-4px 0 12px;font-size:13px">Own every card in a set and its bonus is added to your event points automatically.</p>
-        ${sets.length ? `<div class="sets">${ord(sets).map(tile).join('')}</div>` : '<p class="muted">Coming soon.</p>'}</div>
-      <div class="panel"><h2>Creator sets</h2>${cr.length ? `<div class="sets">${ord(cr).map(tile).join('')}</div>` : '<p class="muted">None.</p>'}</div>`;
+    const done = s => s.keys.every(k => own[k]);
+    const tile = s => { const have = s.keys.filter(k => own[k]).length;
+      return `<div class="stile ${done(s) ? 'won' : ''}" style="--sc:#2dd4bf"><div class="stin"><div class="row between"><b class="sname">${esc(s.name)}</b><span class="scount">${have}/${s.keys.length}</span></div>
+        ${minisHTML(s.keys, own)}<div class="row between" style="gap:6px">${done(s) ? `<span class="sdone">✓ Done · +${st(s.bonus)}</span>` : `<span class="saway">${s.keys.length - have} away</span><span class="muted">+${st(s.bonus)}</span>`}</div></div></div>`; };
+    const crInfo = s => { const c = {key: ckey(s.name), name: s.name, style: 'plain'}, have = s.keys.filter(k => own[k]).length, d = done(s);
+      const prog = `<div class="cprog"><div class="row between"><b>${have}/${s.keys.length}</b>${d ? `<span class="sdone">✓ Done · +${st(s.bonus)}</span>` : `<span>+${st(s.bonus)}</span>`}</div>
+        <div class="bar" style="margin:6px 0 0"><i style="width:${Math.round(have / s.keys.length * 100)}%;background:linear-gradient(90deg,#14b8a6,#4ade80)"></i></div></div>`;
+      return {c, have, d, prog}; };
+    const crRow = s => { const x = crInfo(s), b = thumbUrl(s.keys.find(k => S.byKey[k]?.image || S.byKey[k]?.video_id) || '');
+      return `<div class="crow s-plain ${x.d ? 'won' : ''}"><div class="chead" ${b ? `style="--bn:url('${b}')"` : ''}>${creatorIcon(x.c, true)}<div class="cinfo"><div class="cname">${esc(s.name)}</div>${x.prog}</div></div>
+        <div class="hscroll">${s.keys.map(k => cardHTML(S.byKey[k], {missing: !own[k], holo: own[k] && own[k].holo})).join('')}</div></div>`; };
+    const crBox = s => { const x = crInfo(s);
+      return `<div class="cbox ${x.d ? 'done' : ''}"><div class="row">${creatorIcon(x.c)}<b style="flex:1">${esc(s.name)}</b></div>${minisHTML(s.keys, own)}${x.prog}</div>`; };
+    const sets = (S.evSets || []).filter(s => s.kind !== 'creator');
+    const cr = (S.evSets || []).filter(s => s.kind === 'creator').sort((a, b) => done(a) - done(b) || b.keys.length - a.keys.length);
+    const big = cr.filter(s => s.keys.length >= 4), small = cr.filter(s => s.keys.length < 4);
+    app.innerHTML = `<div class="panel"><h2>Event sets</h2><p class="muted" style="margin:-4px 0 12px;font-size:13px">Own every card in a set and its bonus is added to your Stars automatically.</p>
+        ${sets.length ? `<div class="sets">${sets.map(tile).join('')}</div>` : '<p class="muted">Coming soon.</p>'}</div>
+      <div class="panel"><h2>Creators · ${cr.filter(done).length}/${cr.length}</h2>
+        ${big.length ? `<div class="crows">${big.map(crRow).join('')}</div>` : ''}${small.length ? `<div class="sets" style="margin-top:14px">${small.map(crBox).join('')}</div>` : ''}</div>`;
     return;
   }
   if (page === 'board') {
-    app.innerHTML = `<div class="panel"><h2>Event leaderboard</h2>${board.length ? board.map((x, i) => `<div class="feeditem"><b style="min-width:28px">${i + 1}</b><span>${esc(x.r.username)}</span><span class="spacer"></span><b>${fmt(x.s)}</b>&nbsp;<span class="muted">pts</span></div>`).join('') : '<p class="muted">Nobody has event cards yet.</p>'}</div>`;
+    const rows = boardRows().map(r => ({...r, ev: evInfo(r.owned)})).filter(r => r.ev.total > 0).sort((a, b) => b.ev.total - a.ev.total);
+    app.innerHTML = `<div class="panel"><h2>Event leaderboard</h2>${rows.length ? `<div class="lbl">${rows.map((r, i) => { const b = thumbUrl(r.banner_key);
+      return `<div class="lbrow ${r.user_id === S.me.user_id ? 'me' : ''} ${i < 3 ? 'p' + (i + 1) : ''}" data-u="${esc(r.username)}" ${b ? `style="--bn:url('${b}')"` : ''}>
+        <div class="lbpos">${i + 1}</div>${avatarHTML(r, 46)}
+        <div class="lbname"><b>${tagHTML(r)}${esc(r.username)}</b><div class="muted" style="font-size:12px">${r.ev.n}/${cards.length} levels · ${r.ev.holos} holo · ${r.ev.sets} sets · ${r.ev.rewards} reward cards</div></div>
+        <div class="lbscore">${fmt(r.ev.total)}<small>★</small></div></div>`; }).join('')}</div>` : '<p class="muted">Nobody has event cards yet.</p>'}</div>`;
+    document.querySelectorAll('.lbrow[data-u]').forEach(tr => tr.onclick = () => go('#/player/' + encodeURIComponent(tr.dataset.u)));
     return;
   }
-  app.innerHTML = head;
+  // packs page: packs, rewards, feeds, Stars breakdown
+  const stackN = Math.min(Math.max(e.packs, 1), 5); let stack = '';
+  for (let i = 0; i < stackN; i++) { const off = i - (stackN - 1); stack += packHTML('event', e.packs ? '' : 'empty', `transform:translate(${off * 7}px,${off * -3}px) rotate(${off * 2.5}deg);opacity:${1 + off * 0.12}`); }
+  const mi = evInfo(myOwnedRows());
+  app.innerHTML = `${dropBanner()}
+  <div class="panel"><div class="row between"><div><h2 style="margin:0">◆ ${esc(e.name)}</h2><div class="muted" style="font-size:13px">${esc(e.description || '')}</div></div>
+      <div style="text-align:right"><div class="label">Ends in</div><b id="evEnd">--</b></div></div>
+    <div class="packs" style="margin-top:10px">
+      <div><div class="label">Event packs</div><div class="big">${e.packs}<small> / ${e.pack_cap}</small></div><div class="muted" style="margin-top:8px;font-weight:700">${st(e.score)}</div></div>
+      <div><div class="stack">${stack}</div><div class="row" style="justify-content:center"><button class="btn primary" id="evOpen" ${e.packs ? '' : 'disabled'}>Open event pack</button><button class="btn" id="evAll" ${e.packs > 1 ? '' : 'disabled'}>Open all (${e.packs})</button></div></div>
+      <div style="text-align:center">${e.next_at ? `<div class="label">Next event pack in</div><div style="font-size:34px;font-weight:900" id="evNext">--:--</div>` : '<div class="full">EVENT PACK STORAGE FULL</div>'}
+        <div class="muted" style="font-size:12px;margin-top:4px">1 event pack every ${fmtSecs(e.pack_secs)}</div></div>
+    </div></div>
+  <div class="panel"><h2>Rewards · <span class="muted" style="font-weight:600">${st(e.score)}</span></h2>
+    <div class="evbar"><i style="width:${Math.min(100, e.score / maxAt * 100)}%"></i></div>
+    <div class="evtrack">${e.rewards.map((r, i) => `<div class="evstep ${i < e.claimed ? 'done' : i === e.claimed ? 'next' : ''}">${r.card && S.byKey[r.card] ? `<div style="width:42px;flex:none">${cardHTML(S.byKey[r.card], {mini: true, missing: i >= e.claimed})}</div>` : ''}<b style="min-width:84px">${fmt(r.at)} ★</b><span style="flex:1">${evRewardText(r)}</span>
+      ${i < e.claimed ? '<span class="sdone">✓ Claimed</span>' : i === e.claimed && e.score >= r.at ? '<button class="btn primary sm" id="evClaim">Claim</button>' : ''}</div>`).join('')}</div>
+    <p class="muted" style="font-size:12px;margin:8px 0 0">Reward cards count in your main score, and each one gives +10% Stars in this event.</p></div>
+  <div class="two">
+    <div class="panel"><h2>Recent trades</h2><div class="feed" id="rtrades"><span class="muted">Loading…</span></div></div>
+    <div class="panel"><h2>Event rare pulls</h2><div class="feed" id="erpulls"><span class="muted">Loading…</span></div></div>
+  </div>
+  <details class="panel odds"><summary><b>Where your Stars come from</b></summary><table class="scoretbl" style="margin-top:10px"><tbody>
+    <tr><td><b>Event cards</b></td><td class="muted">${mi.n}/${cards.length} cards · each counts once</td><td style="text-align:right">${fmt(mi.cards)}</td></tr>
+    <tr><td><b>✦ Holo bonus</b></td><td class="muted">${mi.holos} holo × 2</td><td style="text-align:right">+${fmt(mi.holo)}</td></tr>
+    <tr><td><b>Reward card boost</b></td><td class="muted">${mi.rewards} × +10%</td><td style="text-align:right">+${fmt(mi.boost)}</td></tr>
+    <tr><td><b>Set bonuses</b></td><td class="muted">${mi.sets} sets done</td><td style="text-align:right">+${fmt(mi.setBonus)}</td></tr>
+    <tr class="tot"><td><b>Total</b></td><td></td><td style="text-align:right"><b>${fmt(mi.total)} ★</b></td></tr></tbody></table></details>`;
+  loadFeeds();
+  rpc('recent_event_pulls', {p_event: e.id}).then(pu => { const ago = t => { const s = (Date.now() + S.clock - new Date(t)) / 1000; return s < 60 ? 'just now' : s < 3600 ? Math.floor(s / 60) + 'm ago' : s < 86400 ? Math.floor(s / 3600) + 'h ago' : Math.floor(s / 86400) + 'd ago'; };
+    if ($('#erpulls')) $('#erpulls').innerHTML = pu.length ? pu.map(p => `<div class="feeditem t-${p.rarity}"><span class="tt">${p.holo ? '✦ ' : ''}${p.rarity.toUpperCase()}</span><span><b>${esc(p.username || '?')}</b> pulled ${esc(p.name)}${p.holo ? ' (holo)' : ''}</span><span class="spacer"></span><span class="muted">${ago(p.pulled_at)}</span></div>`).join('')
+      : '<span class="muted">Nobody has pulled a Legendary or better yet.</span>'; }).catch(() => {});
   $('#evOpen').onclick = () => openPacks('event', 1);
   $('#evAll').onclick = () => openPacks('event', e.packs);
   if ($('#evClaim')) $('#evClaim').onclick = async ev => { const b = ev.currentTarget; b.disabled = true;
-    try { const r = await rpc('claim_event_reward', {p_token: S.token}); setState(r.state); S.event = r.event; await loadMyCards(); celebrate(b, '#ff3cac', 0, 'Reward: ' + evRewardText(r.reward)); setTimeout(route, 1600); }
+    try { const r = await rpc('claim_event_reward', {p_token: S.token}); setState(r.state); S.event = r.event; await loadMyCards(); celebrate(b, '#2dd4bf', 0, 'Reward: ' + evRewardText(r.reward).replace(/<[^>]+>/g, '')); setTimeout(route, 1600); }
     catch (er) { toast(er.message, true); b.disabled = false; } };
 }
 setInterval(() => {   // event countdowns
