@@ -94,7 +94,8 @@ h3{margin:0 0 10px;font-size:16px}
 .timers>div+div{margin-top:12px}
 .packs.two .row{flex-wrap:nowrap;gap:8px}.packs.two .row .btn{padding-left:14px;padding-right:14px;white-space:nowrap}
 @media (max-width:820px){.packs.two{grid-template-columns:1fr}.packs.two>div:first-child{text-align:center}}
-.pack.holo_event{background:linear-gradient(135deg,#14b8a6,#6bd0ff,#b46bff,#4ade80,#14b8a6);background-size:300% 300%;animation:frame2 6s linear infinite}
+.pack.creator_event{background:linear-gradient(165deg,#052e16 0%,#15803d 40%,#4ade80 74%,#ecfccb 100%)}
+.pack.holo_creator_event,.pack.holo_event{background:linear-gradient(135deg,#14b8a6,#6bd0ff,#b46bff,#4ade80,#14b8a6);background-size:300% 300%;animation:frame2 6s linear infinite}
 .pack.event{background:linear-gradient(165deg,#022c27 0%,#0f766e 38%,#14b8a6 72%,#a7f3d0 100%)}
 .pack.legendary{background:linear-gradient(165deg,#2a1500,#8a4b06 40%,#f59e0b 75%,#fff1b8)}
 .pack .pk-face{width:70px;height:70px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.5))}
@@ -744,8 +745,10 @@ function cardOdds(l, o = {}) {   // chance per card shown (each option in a pack
   const one = p => '1 in ' + shortN(1 / p) + ' cards';
   if (l.tier === 'uplayer') return unvOwner(l.key) ? 'Found' : '';
   if (l.tier === 'eventreward') return 'Event reward';
-  if (l.tier === 'event') { const ev = S.levels.filter(x => x.tier === 'event' && x.info?.event === l.info?.event), EW = {apex: 1, mythic: 3, legendary: 8, epic: 20, rare: 40, uncommon: 60, common: 80};
+  if (l.tier === 'event') { const ev = S.levels.filter(x => x.tier === 'event' && x.info?.event === l.info?.event && (x.info?.kind === 'player') === (l.info?.kind === 'player')), EW = {apex: 1, mythic: 3, legendary: 8, epic: 20, rare: 40, uncommon: 60, common: 80};
     const tot = ev.reduce((s, x) => s + (EW[x.info?.rarity] || 80), 0), each = (EW[l.info?.rarity] || 80) / tot, hc2 = (S.odds && S.odds.holo_chance) ?? 0.1;
+    if (o.golden) { if (goldOwner(l.key)) return '★ 1 of 1 · already found'; const left = ev.filter(x => !goldOwner(x.key)), wl = left.reduce((s, x) => s + (EW[x.info?.rarity] || 80), 0), fl = S.me.golden_floor ?? 0.5;
+      return wl ? '★ 1 in ' + shortN(1 / ((S.me.golden_chance ?? 0.01) * (fl + (1 - fl) * wl / tot) * (EW[l.info?.rarity] || 80) / wl / 3)) + ' cards' : ''; }
     return (o.holo ? '✦ ' : '') + '1 in ' + shortN(1 / (each * (o.holo ? hc2 : 1))) + ' cards'; }
   if (l.tier === 'unverified') { const left = S.levels.filter(x => x.tier === 'unverified' && !unvOwner(x.key)).length;
     return unvOwner(l.key) ? 'Found' : left ? one((1 - (1 - ((S.odds && S.odds.unverified_chance) ?? 1 / 900)) ** (1 / n)) / left) : ''; }
@@ -790,7 +793,7 @@ function cardHTML(l, o = {}) {
     ${o.mini ? '' : `<div class="codds">${cardOdds(l, o)}</div>`}
     <div class="nm">${esc(l.name)}</div>
     <div class="meta">${l.tier === 'event' || l.tier === 'eventreward' ? esc(l.info?.desc || '') : l.tier === 'uplayer' ? '<b class="abil">✦ ???</b> · Who is this?' : l.tier === 'player' ? `Beat ${pInfo(l).beaten.length} · Verified ${pInfo(l).verified.length}` : `${l.tier === 'unverified' ? (ABILITIES[l.key] ? `<b class="abil">✦ ${esc(ABILITIES[l.key].name)}</b> · ${esc(ABILITIES[l.key].desc)}` : 'Not verified yet') : `Verified by ${esc(l.verifier || '?')}`}<br>By ${esc(creatorsOf(l).join(', ') || '?')}`}</div>
-    <div class="pts">${l.tier === 'event' ? fmt(l.points * (o.holo ? 2 : 1)) + ' ★' + (o.holo ? ' ✦' : '') : l.tier === 'eventreward' ? fmt(l.points) + ' pts · +10% ★' : l.tier === 'uplayer' ? '= your best player' : l.tier === 'player' ? (o.golden ? `★ boosts ×${RULES.playerGoldMult}` : o.holo ? '★ boosts ×2' : '★ boosts levels') : l.tier === 'unverified' ? '= your best card' : fmt(l.points * lvMult(o)) + ' pts' + (o.golden ? ' ★' : o.holo ? ' ✦' : '')}</div>
+    <div class="pts">${l.tier === 'event' ? fmt(l.points * (o.golden ? 5 : o.holo ? 2 : 1)) + ' ★' + (o.golden ? ' ★' : o.holo ? ' ✦' : '') : l.tier === 'eventreward' ? fmt(l.points) + ' pts · +10% ★' : l.tier === 'uplayer' ? '= your best player' : l.tier === 'player' ? (o.golden ? `★ boosts ×${RULES.playerGoldMult}` : o.holo ? '★ boosts ×2' : '★ boosts levels') : l.tier === 'unverified' ? '= your best card' : fmt(l.points * lvMult(o)) + ' pts' + (o.golden ? ' ★' : o.holo ? ' ✦' : '')}</div>
     ${o.golden ? '<div class="holotag goldtag">★ GOLDEN</div>' : o.holo && l.tier !== 'unverified' ? '<div class="holotag">✦ HOLO</div>' : ''}
   </div>`;
 }
@@ -897,7 +900,7 @@ function showLevel(key) {
     <p><b>${esc(l.name)}</b>: ${l.tier === 'event' ? `◆ EVENT CARD · ${esc((l.info?.rarity || '').toUpperCase())}<br><span class="muted">${esc(l.info?.desc || '')}</span>` : l.tier === 'eventreward' ? `◆ EVENT REWARD CARD<br><span class="muted">${esc(l.info?.desc || '')}</span>` : l.tier === 'unverified' ? `UNVERIFIED · only 1 exists${l.info && l.info.placement ? ' · expected ' + esc(l.info.placement) : ''}${l.info && l.info.layout ? `<br><span class="muted">Layout ${esc(l.info.layout)} · Deco ${esc(l.info.deco || '?')} · Verifying ${esc(l.info.verify || '?')}</span>` : ''}${ABILITIES[l.key] ? `<br><b class="abil">✦ ${esc(ABILITIES[l.key].name)}</b> (${esc(ABILITIES[l.key].who)}): ${esc(ABILITIES[l.key].desc)}` : ''}${unvOwner(l.key) ? `<br>Owned by <b>${esc(unvOwner(l.key))}</b>` : '<br><span class="muted">Not found yet</span>'}` : l.rank ? `#${l.rank} on the list, ${l.tier.toUpperCase()}` : 'no longer on the list (vaulted)'}<br>
     ${l.tier === 'event' || l.tier === 'eventreward' ? '' : `<span class="muted">Created by ${esc(creatorsOf(l).join(', ') || '?')} · Verified by ${esc(l.verifier || '?')}</span>`}</p>
     <p>You own: <b>${own ? own.count : 0}</b> ${own && own.holo ? `(${own.holo} holo)` : ''}<br>
-    <span class="muted">${l.tier === 'event' ? `Worth ${fmt(l.points)} ★ Stars, or ${fmt(l.points * 2)} ★ as holo · ${cardOdds(l)}` : l.tier === 'eventreward' ? `Worth ${fmt(l.points)} pts in the main game, and +10% ★ Stars in its event` : `Worth ${fmt(l.points)} pts, or ${fmt(l.points * RULES.holoMult)} as holo`}${S.me.golden_cards && l.rank ? `, ${fmt(l.points * RULES.goldMult)} golden` : ''}</span>
+    <span class="muted">${l.tier === 'event' ? `Worth ${fmt(l.points)} ★ Stars, ${fmt(l.points * 2)} ★ as holo${S.me.golden_cards ? `, ${fmt(l.points * 5)} ★ golden` : ''} · ${cardOdds(l)}` : l.tier === 'eventreward' ? `Worth ${fmt(l.points)} pts in the main game, and +10% ★ Stars in its event` : `Worth ${fmt(l.points)} pts, or ${fmt(l.points * RULES.holoMult)} as holo`}${S.me.golden_cards && l.rank ? `, ${fmt(l.points * RULES.goldMult)} golden` : ''}</span>
     ${S.me.golden_cards && l.rank ? `<br><span class="muted">${goldOwner(key) ? `★ Golden owned by <b class="goldtxt">${esc(goldOwner(key))}</b>` : '★ Golden not found yet'}</span>` : ''}</p>
     ${l.video_id ? `<p><a href="https://youtu.be/${esc(l.video_id)}" target="_blank" rel="noopener">Watch verification ↗</a></p>` : ''}
     ${own ? `<div class="locks"><div class="label" style="margin-bottom:6px">Your copies · locked ones can't be traded</div>${S.myCards.filter(c => c.level_key === key).sort((a, b) => !!b.golden - !!a.golden || b.holo - a.holo).map((c, i) =>
@@ -905,7 +908,7 @@ function showLevel(key) {
     ${own && S.me.holo_dupe_packs && !['unverified', 'player', 'uplayer', 'eventreward'].includes(l.tier) && (l.tier !== 'event' || l.info?.event === S.event?.id) && S.myCards.filter(c => c.level_key === key && c.holo && !c.golden).length >= 3 ? (() => {
       const hn = S.myCards.filter(c => c.level_key === key && c.holo && !c.golden && !c.locked).length;
       const tot = S.myCards.filter(c => c.level_key === key && c.holo && !c.golden).length;
-      return `<div style="margin-top:12px"><button class="btn sm ${hn >= 3 ? 'primary' : ''}" id="hdTrade" ${hn >= 3 ? '' : 'disabled'}>✦ Trade 3 holos for 1 holo ${l.tier === 'event' ? 'event ' : ''}pack</button>
+      return `<div style="margin-top:12px"><button class="btn sm ${hn >= 3 ? 'primary' : ''}" id="hdTrade" ${hn >= 3 ? '' : 'disabled'}>✦ Trade 3 holos for 1 holo ${l.tier === 'event' ? (l.info?.kind === 'player' ? 'creator ' : 'event ') : ''}pack</button>
         <div class="muted" style="font-size:12px;margin-top:4px">${hn < 3 ? `Needs 3 unlocked holos (you have ${hn})` : tot - 3 > 0 ? `You'll have ${tot - 3} holo left after this` : `⚠ You only have 3, so you won't have this holo anymore`}</div></div>`; })() : ''}
     ${own && !['unverified', 'player', 'uplayer', 'eventreward'].includes(l.tier) ? (() => { const n = S.myCards.filter(c => c.level_key === key && !c.holo && !c.locked).length, need = craftCost(l.tier);
       return `<div style="margin-top:12px"><button class="btn sm ${n >= need ? 'primary' : ''}" id="craft" ${n >= need ? '' : 'disabled'}>✦ Combine ${need} copies into a holo</button> <span class="muted" style="font-size:12px">${n}/${need} unlocked normal copies</span></div>`; })() : ''}
@@ -918,7 +921,7 @@ function showLevel(key) {
     if (!confirm(`Trade 3 holo ${l.name} for 1 holo ${l.tier === 'event' ? 'event ' : ''}pack? (Your golden is never used.)` + (left > 0 ? `\nYou'll have ${left} holo ${l.name} left after this.` : `\n⚠ By the way: you only have 3, so you won't have a holo ${l.name} anymore!`))) return;
     hb.disabled = true;
     try { const r = await rpc('holo_dupes_to_packs', {p_token: S.token, p_level_key: key}); setState(r.state);
-      S.myCards = S.myCards.filter(c => !r.used.includes(c.id)); m.remove(); toast(l.tier === 'event' ? '+1 holo event pack!' : '+1 holo pack!'); if (l.tier === 'event') await loadEvent(); route(); }
+      S.myCards = S.myCards.filter(c => !r.used.includes(c.id)); m.remove(); toast(l.tier === 'event' ? (l.info?.kind === 'player' ? '+1 holo creator pack!' : '+1 holo event pack!') : '+1 holo pack!'); if (l.tier === 'event') await loadEvent(); route(); }
     catch (e) { toast(e.message, true); hb.disabled = false; }
   };
   const cb = m.querySelector('#craft');
@@ -985,8 +988,8 @@ async function doLogout() {
 
 // ---------------- home ----------------
 function packHTML(kind = 'normal', cls = '', style = '') {
-  const label = {normal: 'DEMON PACK', epic: 'EPIC PACK', legendary: 'LEGENDARY', holo: 'HOLO PACK', player: 'PLAYER PACK', holo_player: 'HOLO PLAYER', event: 'EVENT PACK', holo_event: 'HOLO EVENT'}[kind];
-  return `<div class="pack ${kind === 'normal' ? '' : kind} ${cls}" style="${style}"><img class="pk-face" src="${LOGO}" alt=""><div class="pk-title">GOLDENFYRE</div><div class="pk-kind">${label}</div><div class="pk-sub">PICK 1 OF ${['player', 'holo_player', 'event', 'holo_event'].includes(kind) ? 3 : S.me.cards_per_pack}</div></div>`;
+  const label = {normal: 'DEMON PACK', epic: 'EPIC PACK', legendary: 'LEGENDARY', holo: 'HOLO PACK', player: 'PLAYER PACK', holo_player: 'HOLO PLAYER', event: 'EVENT PACK', holo_event: 'HOLO EVENT', creator_event: 'CREATOR PACK', holo_creator_event: 'HOLO CREATOR'}[kind];
+  return `<div class="pack ${kind === 'normal' ? '' : kind} ${cls}" style="${style}"><img class="pk-face" src="${LOGO}" alt=""><div class="pk-title">GOLDENFYRE</div><div class="pk-kind">${label}</div><div class="pk-sub">PICK 1 OF ${['player', 'holo_player', 'event', 'holo_event', 'creator_event', 'holo_creator_event'].includes(kind) ? 3 : S.me.cards_per_pack}</div></div>`;
 }
 // Small "Pack odds" box at the bottom of the Packs page (worked out from the live settings)
 function oddsHTML() {
@@ -1389,11 +1392,11 @@ async function merge(target) {
 let busy = false;
 async function openPacks(kind, count) {
   if (busy) return; busy = true;
-  const top = document.querySelector(kind === 'player' ? '.pstack .pack:last-child' : '.stack:not(.pstack) .pack:last-child');
-  if (top && ['normal', 'player', 'event'].includes(kind)) top.classList.add('tearing');
+  const top = document.querySelector(kind === 'player' || kind === 'creator_event' ? '.pstack .pack:last-child' : '.stack:not(.pstack) .pack:last-child');
+  if (top && ['normal', 'player', 'event', 'creator_event'].includes(kind)) top.classList.add('tearing');
   document.querySelectorAll('main button').forEach(b => b.disabled = true);
   let r;
-  try { [r] = await Promise.all([kind === 'event' || kind === 'holo_event' ? rpc('open_event_packs', {p_token: S.token, p_count: count, p_holo: kind === 'holo_event'}) : rpc('open_packs', {p_token: S.token, p_kind: kind, p_count: count}), sleep(650)]); }
+  try { [r] = await Promise.all([kind.endsWith('event') ? rpc('open_event_packs', {p_token: S.token, p_count: count, p_holo: kind.startsWith('holo_'), p_creator: kind.includes('creator')}) : rpc('open_packs', {p_token: S.token, p_kind: kind, p_count: count}), sleep(650)]); }
   catch (e) { busy = false; toast(e.message, true); route(); return; }
   setState(r.state); if (r.event) S.event = r.event;
   busy = false;
@@ -1491,7 +1494,7 @@ function goldenFound(b) {
     sc.innerHTML = `<div class="rays"></div><div class="scin">
       <div class="sctitle goldtxt">★ GOLDEN CARD!</div>
       <div class="sccard">${cardHTML(l, {golden: true, holo: true})}</div>
-      <div class="scodds">One of your options is the only golden <b>${esc(l.name)}</b> in existence.<br>${l.tier === 'player' ? `Boosts ×${RULES.playerGoldMult}` : `Worth ${fmt(l.points * RULES.goldMult)} pts (${RULES.goldMult}×)`}. Pick it to keep it!</div>
+      <div class="scodds">One of your options is the only golden <b>${esc(l.name)}</b> in existence.<br>${l.tier === 'event' ? `Worth ${fmt(l.points * 5)} ★ Stars (5×)` : l.tier === 'player' ? `Boosts ×${RULES.playerGoldMult}` : `Worth ${fmt(l.points * RULES.goldMult)} pts (${RULES.goldMult}×)`}. Pick it to keep it!</div>
       <button class="btn primary">Continue <span class="kbd">Space</span></button></div>`;
     const done = () => { document.removeEventListener('keydown', k, true); sc.classList.add('out'); setTimeout(() => sc.remove(), 300); res(); };
     const k = e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); done(); } };
@@ -1549,7 +1552,7 @@ function runPicks(picks) {
     const left = picks.length - idx - 1;
     const instant = localStorage.getItem('gacha_instant') === '1';
     ov.innerHTML = `<div class="inner">
-      <div class="muted">${pk.kind === 'holo' ? '✦ Holo pack' : pk.kind === 'player' ? '★ Player pack' : pk.kind === 'holo_player' ? '✦ ★ Holo player pack' : pk.kind === 'event' ? '◆ ' + esc(S.event?.name || 'Event') + ' pack' : pk.kind === 'holo_event' ? '✦ ◆ Holo ' + esc(S.event?.name || 'event') + ' pack' : ''}${picks.length > 1 ? ` · Pack ${idx + 1} of ${picks.length}` : '&nbsp;'}</div>
+      <div class="muted">${pk.kind === 'holo' ? '✦ Holo pack' : pk.kind === 'player' ? '★ Player pack' : pk.kind === 'holo_player' ? '✦ ★ Holo player pack' : pk.kind === 'event' ? '◆ ' + esc(S.event?.name || 'Event') + ' pack' : pk.kind === 'holo_event' ? '✦ ◆ Holo ' + esc(S.event?.name || 'event') + ' pack' : pk.kind === 'creator_event' ? '★ ◆ Creator pack' : pk.kind === 'holo_creator_event' ? '✦ ★ ◆ Holo creator pack' : ''}${picks.length > 1 ? ` · Pack ${idx + 1} of ${picks.length}` : '&nbsp;'}</div>
       <h1 id="pTitle">${instant ? 'Pick 1 to keep' : 'Revealing…'}</h1>
       <div class="pickrow" style="--n:${pk.options.length}">${pk.options.map((o, i) => `<div class="opt ${instant ? '' : 'deal'}" data-i="${i}" style="animation-delay:${i * 130}ms">
         <div class="flip t-${o.uplayer || o.unverified ? 'apex' : o.golden ? 'golden' : lv(o).tier === 'player' ? pInfo(lv(o)).rarity : lv(o).tier}"><div class="flip-in"><div class="fr">${cardHTML(lv(o), {holo: o.holo, golden: o.golden})}</div><div class="cback"><img src="${LOGO}" alt=""></div></div></div>
@@ -1561,7 +1564,7 @@ function runPicks(picks) {
     const opts = [...ov.querySelectorAll('.opt')];
     let skip = false, ready = false, chosen = null;
     const flip = o => { const f = o.querySelector('.flip'); f.classList.remove('charge'); f.classList.add('open'); o.classList.add('revealed'); };
-    const packsAfter = () => pk.kind === 'normal' ? S.me.packs + S.me.bonus_packs : pk.kind === 'holo' ? S.me.holo_packs : pk.kind === 'player' ? S.me.player_packs : pk.kind === 'holo_player' ? S.me.holo_player_packs : pk.kind === 'event' ? (S.event?.packs || 0) : pk.kind === 'holo_event' ? (S.event?.holo_packs || 0) : pk.kind === 'epic' ? S.me.epic_packs : S.me.legendary_packs;
+    const packsAfter = () => pk.kind === 'normal' ? S.me.packs + S.me.bonus_packs : pk.kind === 'holo' ? S.me.holo_packs : pk.kind === 'player' ? S.me.player_packs : pk.kind === 'holo_player' ? S.me.holo_player_packs : pk.kind === 'event' ? (S.event?.packs || 0) : pk.kind === 'holo_event' ? (S.event?.holo_packs || 0) : pk.kind === 'creator_event' ? (S.event?.cpacks || 0) : pk.kind === 'holo_creator_event' ? (S.event?.holo_cpacks || 0) : pk.kind === 'epic' ? S.me.epic_packs : S.me.legendary_packs;
     const confirmPick = async (thenNext) => {
       if (chosen == null || ov.dataset.busy) return;
       ov.dataset.busy = 1; keyHandler = null;
@@ -1586,7 +1589,7 @@ function runPicks(picks) {
       }
       opts.forEach(x => { x.classList.remove('choosable', 'chosen'); x.classList.add(x === o ? 'kept' : 'gone'); });
       ov.querySelector('#pTitle').textContent = `Kept ${S.byKey[r.card.level_key].name}!`;
-      const packsLeft = pk.kind === 'normal' ? S.me.packs + S.me.bonus_packs : pk.kind === 'holo' ? S.me.holo_packs : pk.kind === 'player' ? S.me.player_packs : pk.kind === 'holo_player' ? S.me.holo_player_packs : pk.kind === 'event' ? (S.event?.packs || 0) : pk.kind === 'holo_event' ? (S.event?.holo_packs || 0) : pk.kind === 'epic' ? S.me.epic_packs : S.me.legendary_packs;
+      const packsLeft = pk.kind === 'normal' ? S.me.packs + S.me.bonus_packs : pk.kind === 'holo' ? S.me.holo_packs : pk.kind === 'player' ? S.me.player_packs : pk.kind === 'holo_player' ? S.me.holo_player_packs : pk.kind === 'event' ? (S.event?.packs || 0) : pk.kind === 'holo_event' ? (S.event?.holo_packs || 0) : pk.kind === 'creator_event' ? (S.event?.cpacks || 0) : pk.kind === 'holo_creator_event' ? (S.event?.holo_cpacks || 0) : pk.kind === 'epic' ? S.me.epic_packs : S.me.legendary_packs;
       ov.querySelector('#pAct').innerHTML = left
         ? `<button class="btn primary" id="next">Next pack (${left}) <span class="kbd">Space</span></button><button class="btn light" id="cont">Done</button>`
         : `${packsLeft ? `<button class="btn primary" id="again">Open another (${packsLeft}) <span class="kbd">Space</span></button>` : ''}<button class="btn light" id="toCol">Collection</button><button class="btn light" id="cont">Done</button>`;
@@ -2433,20 +2436,23 @@ async function loadEvent() {
   return S.event;
 }
 function evInfo(owned) {   // owned: [[key, holo, n, golden]] rows. Returns the Stars breakdown for the current event
-  const ev = S.event?.id, has = new Set(); let cards = 0, holo = 0, n = 0, holos = 0, rewards = 0;
-  for (const [k, h] of owned) { const l = S.byKey[k]; if (!l || l.info?.event !== ev) continue;
-    if (l.tier === 'event') { cards += l.points; if (h) { holo += l.points; holos++; } n++; has.add(k); }
+  const ev = S.event?.id, has = new Set(); let cards = 0, holo = 0, gold = 0, n = 0, holos = 0, goldens = 0, creators = 0, rewards = 0;
+  for (const [k, h, , g] of owned) { const l = S.byKey[k]; if (!l || l.info?.event !== ev) continue;
+    if (l.tier === 'event') { cards += l.points; if (g) { gold += l.points * 4; goldens++; } else if (h) holo += l.points; if (h || g) holos++; n++; if (l.info?.kind === 'player') creators++; has.add(k); }
     if (l.tier === 'eventreward') rewards++; }
-  const boost = Math.round((cards + holo) * 0.1 * rewards);
+  const boost = Math.round((cards + holo + gold) * 0.1 * rewards);
   const hset = new Set(owned.filter(r => r[1]).map(r => r[0]));
   const sets = (S.evSets || []).filter(st => st.keys.every(k => has.has(k))), hsets = (S.evSets || []).filter(st => st.keys.every(k => hset.has(k)));
   const setBonus = sets.reduce((s, st) => s + st.bonus, 0), holoSetBonus = hsets.reduce((s, st) => s + st.bonus, 0);
-  return {n, holos, cards, holo, rewards, boost, sets: sets.length, setBonus, holoSets: hsets.length, holoSetBonus, total: cards + holo + boost + setBonus + holoSetBonus};
+  return {n, holos, goldens, creators, cards, holo, gold, rewards, boost, sets: sets.length, setBonus, holoSets: hsets.length, holoSetBonus, total: cards + holo + gold + boost + setBonus + holoSetBonus};
 }
 // event collection grid with the same search + filters as the main collection
 function evGrid(list, cp) {
   const f = S.evF;
-  let lv = list.filter(l => matchQ(l, f.q) && (f.r === 'all' || l.info?.rarity === f.r));
+  let lv = list.filter(l => matchQ(l, f.q) && (f.r === 'all' || l.info?.rarity === f.r) && (f.k === 'all' || (f.k === 'creators') === (l.info?.kind === 'player')));
+  if (f.show === 'golden') { const mine = l => (cp[l.key] || []).some(c => c.golden); lv = [...lv].sort((a, b) => mine(b) - mine(a) || !!goldOwner(b.key) - !!goldOwner(a.key));
+    return lv.length ? `<div class="grid" style="row-gap:24px">${lv.map(l => { const g = (cp[l.key] || []).filter(c => c.golden), who = goldOwner(l.key);
+      return g.length ? stackHTML(l, g) : `<div class="unvwrap">${cardHTML(l, {missing: true, golden: true})}<div class="unvfound ${who ? 'got' : ''}">${who ? 'Golden: <b>' + esc(who) + '</b>' : 'Not found yet'}</div></div>`; }).join('')}</div>` : '<p class="muted">Nothing here.</p>'; }
   if (f.show === 'hdupes') { const hl = lv.map(l => [l, (cp[l.key] || []).filter(c => c.holo && !c.golden)]).filter(([, hc]) => hc.length >= 2);
     return hl.length ? `<div class="grid" style="row-gap:24px">${hl.map(([l, hc]) => stackHTML(l, hc, {hd: hc.length >= 3})).join('')}</div>` : '<p class="muted">No holo dupes yet. You need 2+ holos of the same card.</p>'; }
   if (f.show === 'holo') return `<div class="grid" style="row-gap:24px">${lv.map(l => { const hc = (cp[l.key] || []).filter(c => c.holo); return hc.length ? stackHTML(l, hc) : cardHTML(l, {missing: true, holo: true}); }).join('')}</div>`;
@@ -2456,25 +2462,29 @@ function evGrid(list, cp) {
   return lv.length ? `<div class="grid" style="row-gap:24px">${lv.map(l => cp[l.key] ? stackHTML(l, cp[l.key]) : cardHTML(l, {missing: true})).join('')}</div>` : '<p class="muted">Nothing here.</p>';
 }
 function evChips(redraw, list, cp) {
-  S.evF = S.evF || {q: '', show: 'all', r: 'all'}; const f = S.evF;
+  S.evF = S.evF || {q: '', show: 'all', r: 'all', k: 'all'}; const f = S.evF; f.k = f.k || 'all';
+  const hasC = list.some(l => l.info?.kind === 'player');
   setTimeout(() => { const q = $('#evq'); if (q) q.oninput = () => { f.q = q.value; $('#evgrid').innerHTML = evGrid(list, cp); };
     document.querySelectorAll('.chip[data-eg]').forEach(b => b.onclick = () => { f[b.dataset.eg] = b.dataset.v; redraw(); }); });
   const chip = (g, v, t) => `<button class="chip ${f[g] === v ? 'on' : ''}" data-eg="${g}" data-v="${v}">${t}</button>`;
   const rar = TIERS.filter(t => list.some(l => l.info?.rarity === t)).reverse();
-  return `${searchBox('evq', f.q, 'Search name or creator')}<div class="chips">${chip('show','all','All')}${chip('show','owned','Owned')}${chip('show','missing','Missing')}${chip('show','holo','✦ Holo')}${S.me.holo_dupe_packs ? chip('show','hdupes','✦ Holo dupes') : ''}${chip('show','dupes','Dupes')}</div>
+  return `${searchBox('evq', f.q, 'Search name or creator')}<div class="chips">${chip('show','all','All')}${chip('show','owned','Owned')}${chip('show','missing','Missing')}${chip('show','holo','✦ Holo')}${S.me.holo_dupe_packs ? chip('show','hdupes','✦ Holo dupes') : ''}${chip('show','dupes','Dupes')}${S.me.golden_cards ? chip('show','golden','★ Golden') : ''}</div>
+    ${hasC ? `<div class="chips">${chip('k','all','Everything')}${chip('k','levels','Levels')}${chip('k','creators','★ Creators')}</div>` : ''}
     <div class="chips">${chip('r','all','Every rarity')}${rar.map(t => chip('r', t, t[0].toUpperCase() + t.slice(1))).join('')}</div>`;
 }
-function evOddsHTML(cards) {
+function evOddsHTML(cards, crs = []) {
   const EW = {apex: 1, mythic: 3, legendary: 8, epic: 20, rare: 40, uncommon: 60, common: 80}, hc = S.odds?.holo_chance ?? 0.1;
-  const tot = cards.reduce((s, l) => s + (EW[l.info?.rarity] || 80), 0); if (!tot) return '';
+  const tbl = (cards, head) => { const tot = cards.reduce((s, l) => s + (EW[l.info?.rarity] || 80), 0); if (!tot) return '';
   const one = x => x >= 1 ? '1 in 1' : '1 in ' + fmt(Math.round(1 / x));
   const rows = TIERS.map(t => { const lv = cards.filter(l => l.info?.rarity === t); if (!lv.length) return '';
     const q = lv.length * EW[t] / tot, each = EW[t] / tot, pack = 1 - (1 - q) ** 3, lp = 1 - (1 - each) ** 3;
     return `<tr><td><span style="color:var(--${t});font-weight:800">${t.toUpperCase()}</span> <span class="muted">${lv.length} card${lv.length > 1 ? 's' : ''} · ${fmt(lv[0].points)} ★</span></td>
       <td style="text-align:right">${(q * 100).toFixed(q < .01 ? 2 : 1)}%</td><td style="text-align:right">${pack >= .5 ? Math.round(pack * 100) + '% of packs' : one(pack)}</td><td style="text-align:right">${one(lp)}</td><td style="text-align:right">${one(lp * hc)}</td></tr>`; }).join('');
-  return `<details class="panel odds"><summary><b>Event pack odds</b></summary>
-    <div style="overflow-x:auto"><table class="scoretbl" style="margin-top:10px"><thead><tr class="muted" style="font-size:12px"><td>Rarity</td><td style="text-align:right">Per option</td><td style="text-align:right">In a pack</td><td style="text-align:right">A specific card</td><td style="text-align:right">That card in holo</td></tr></thead>
-    <tbody>${rows}</tbody></table></div><p class="muted" style="font-size:12px;margin:8px 0 0">Event packs show 3 cards and you keep 1. Holo event packs: every option is holo.</p></details>`;
+    return `${head ? `<b style="display:block;margin-top:14px">${head}</b>` : ''}<div style="overflow-x:auto"><table class="scoretbl" style="margin-top:10px"><thead><tr class="muted" style="font-size:12px"><td>Rarity</td><td style="text-align:right">Per option</td><td style="text-align:right">In a pack</td><td style="text-align:right">A specific card</td><td style="text-align:right">That card in holo</td></tr></thead>
+    <tbody>${rows}</tbody></table></div>`; };
+  const gc = S.me.golden_chance ?? 0.01;
+  return `<details class="panel odds"><summary><b>Event pack odds</b></summary>${tbl(cards, crs.length ? 'Event packs' : '')}${tbl(crs, '★ Creator packs')}
+    <p class="muted" style="font-size:12px;margin:8px 0 0">Packs show 3 cards and you keep 1. Holo packs: every option is holo.${S.me.golden_cards ? ` Up to 1 in ${fmt(Math.round(1 / gc))} packs has a ★ golden card (only 1 of each exists, worth 5× Stars); it gets rarer as goldens are found.` : ''}</p></details>`;
 }
 // someone else's event collection (#/event/player/NAME)
 async function renderEventPlayer(name) {
@@ -2568,31 +2578,44 @@ async function renderEvent(page = 'packs') {
     app.innerHTML = `<div class="panel"><h2>Event leaderboard</h2>${tabs}${rows.length ? `<div class="lbl">${rows.map((r, i) => { const b = thumbUrl(r.banner_key);
       return `<div class="lbrow ${r.user_id === S.me.user_id ? 'me' : ''} ${i < 3 ? 'p' + (i + 1) : ''}" data-u="${esc(r.username)}" ${b ? `style="--bn:url('${b}')"` : ''}>
         <div class="lbpos">${i + 1}</div>${avatarHTML(r, 46)}
-        <div class="lbname"><b>${tagHTML(r)}${esc(r.username)}</b><div class="muted" style="font-size:12px">${r.ev.n}/${cards.length} levels · ${r.ev.holos} holo · ${r.ev.sets} sets · ${r.ev.rewards} reward cards</div></div>
+        <div class="lbname"><b>${tagHTML(r)}${esc(r.username)}</b><div class="muted" style="font-size:12px">${r.ev.n}/${cards.length} cards · ${r.ev.holos} holo${r.ev.goldens ? ` · ★ ${r.ev.goldens} golden` : ''} · ${r.ev.sets} sets · ${r.ev.rewards} reward cards</div></div>
         <div class="lbscore">${fmt(r.ev.total)}<small>★</small></div></div>`; }).join('')}</div>` : '<p class="muted">Nobody has event cards yet.</p>'}</div>`;
     document.querySelectorAll('[data-ebt]').forEach(b => b.onclick = () => { S.evBoardTab = b.dataset.ebt; renderEvent('board'); });
     document.querySelectorAll('.lbrow[data-u]').forEach(tr => tr.onclick = () => go('#/event/player/' + encodeURIComponent(tr.dataset.u)));
     return;
   }
   // packs page: packs, rewards, feeds, Stars breakdown
+  const cOn = !!e.cpack_secs, cp2 = e.cpacks || 0, cN = Math.min(Math.max(cp2, 1), 5); let cstack = '';
+  for (let i = 0; i < cN && cOn; i++) { const off = i - (cN - 1); cstack += packHTML('creator_event', cp2 ? '' : 'empty', `transform:translate(${off * 7}px,${off * -3}px) rotate(${off * 2.5}deg);opacity:${1 + off * 0.12}`); }
+  const lvC = cards.filter(l => l.info?.kind !== 'player'), crC = cards.filter(l => l.info?.kind === 'player');
   const stackN = Math.min(Math.max(e.packs, 1), 5); let stack = '';
   for (let i = 0; i < stackN; i++) { const off = i - (stackN - 1); stack += packHTML('event', e.packs ? '' : 'empty', `transform:translate(${off * 7}px,${off * -3}px) rotate(${off * 2.5}deg);opacity:${1 + off * 0.12}`); }
   const mi = evInfo(myOwnedRows());
   app.innerHTML = `${dropBanner()}
   <div class="panel"><div class="row between"><div><h2 style="margin:0">◆ ${esc(e.name)}</h2><div class="muted" style="font-size:13px">${esc(e.description || '')}</div></div>
       <div style="text-align:right"><div class="label">Ends in</div><b id="evEnd">--</b></div></div>
-    <div class="packs" style="margin-top:10px">
-      <div><div class="label">Event packs</div><div class="big">${e.packs}<small> / ${e.pack_cap}</small></div><div class="muted" style="margin-top:8px;font-weight:700">${st(e.score)}</div>
-        <div class="muted" style="font-size:12px;margin-top:6px">Collected ${owned}/${cards.length} · <span class="hcount">✦ ${mi.holos}/${cards.length}</span></div>
+    <div class="packs ${cOn ? 'two' : ''}" style="margin-top:10px">
+      <div><div class="label">Event packs</div><div class="big">${e.packs}<small> / ${e.pack_cap}</small></div>
+        ${cOn ? `<div class="label" style="margin-top:16px">★ Creator packs</div><div class="big" style="font-size:40px">${cp2}<small> / ${e.cpack_cap}</small></div>` : ''}
+        <div class="muted" style="margin-top:8px;font-weight:700">${st(e.score)}</div>
+        <div class="muted" style="font-size:12px;margin-top:6px">Collected ${owned}/${cards.length} · <span class="hcount">✦ ${mi.holos}/${cards.length}</span>${mi.goldens ? ` · <span style="color:#ffd36b">★ ${mi.goldens}</span>` : ''}</div>
         <div class="bar" style="margin:6px 0 0;max-width:220px"><i style="width:${Math.round(owned / Math.max(cards.length, 1) * 100)}%;background:linear-gradient(90deg,#14b8a6,#4ade80)"></i></div></div>
       <div><div class="stack">${stack}</div><div class="row" style="justify-content:center"><button class="btn primary" id="evOpen" ${e.packs ? '' : 'disabled'}>Open event pack</button><button class="btn" id="evAll" ${e.packs > 1 ? '' : 'disabled'}>Open all (${e.packs})</button></div></div>
-      <div style="text-align:center">${e.next_at ? `<div class="label">Next event pack in</div><div style="font-size:34px;font-weight:900" id="evNext">--:--</div>` : '<div class="full">EVENT PACK STORAGE FULL</div>'}
+      ${cOn ? `<div><div class="stack pstack">${cstack}</div><div class="row" style="justify-content:center"><button class="btn primary" id="evC" ${cp2 ? '' : 'disabled'}>Open creator pack</button><button class="btn" id="evCAll" ${cp2 > 1 ? '' : 'disabled'}>Open all (${cp2})</button></div></div>` : ''}
+      <div style="text-align:center" class="timers"><div>${e.next_at ? `<div class="label">Next event pack in</div><div style="font-size:34px;font-weight:900" id="evNext">--:--</div>` : '<div class="full">EVENT PACK STORAGE FULL</div>'}
         <div class="muted" style="font-size:12px;margin-top:4px">1 event pack every ${fmtSecs(e.pack_secs)}</div></div>
+        ${cOn ? `<div>${e.next_cpack_at ? `<div class="label">Next creator pack in</div><div style="font-size:34px;font-weight:900" id="evCNext">--:--</div>` : '<div class="full">CREATOR STORAGE FULL</div>'}
+        <div class="muted" style="font-size:12px;margin-top:4px">1 creator pack every ${fmtSecs(e.cpack_secs)}</div></div>` : ''}</div>
     </div></div>
   ${e.holo_packs ? `<div class="panel"><div class="row" style="gap:16px;flex-wrap:wrap">
     ${packHTML('holo_event', 'mini')}
     <div style="flex:1;min-width:200px"><b>Holo event packs: ${e.holo_packs}</b><div class="muted" style="font-size:13px">Every option is holo. Get more by trading 3 holos of the same event card.</div></div>
     <button class="btn primary sm" id="evHolo">Open holo event pack</button>${e.holo_packs > 1 ? `<button class="btn sm" id="evHoloAll">Open all (${e.holo_packs})</button>` : ''}
+  </div></div>` : ''}
+  ${e.holo_cpacks ? `<div class="panel"><div class="row" style="gap:16px;flex-wrap:wrap">
+    ${packHTML('holo_creator_event', 'mini')}
+    <div style="flex:1;min-width:200px"><b>Holo creator packs: ${e.holo_cpacks}</b><div class="muted" style="font-size:13px">Every creator is holo. Get more by trading 3 holos of the same creator.</div></div>
+    <button class="btn primary sm" id="evHoloC">Open holo creator pack</button>
   </div></div>` : ''}
   <div class="panel"><h2>Rewards · <span class="muted" style="font-weight:600">${st(e.score)}</span></h2>
     <div class="evbar"><i style="width:${Math.min(100, e.score / maxAt * 100)}%"></i></div>
@@ -2601,9 +2624,11 @@ async function renderEvent(page = 'packs') {
     <p class="muted" style="font-size:12px;margin:8px 0 0">Reward cards count in your main score, and each one gives +10% Stars in this event.</p></div>
   <div class="panel"><div class="row between"><h2 style="margin:0">Collection progress</h2><a href="#/event/collection">Open collection →</a></div>
     <div class="bar"><i style="width:${(owned / Math.max(cards.length, 1) * 100).toFixed(1)}%;background:linear-gradient(90deg,#14b8a6,#4ade80)"></i></div>
-    <div class="stats six"><div class="stat"><b>${(owned / Math.max(cards.length, 1) * 100).toFixed(1)}%</b><span class="muted">Collected</span></div>
-      <div class="stat"><b>${owned}/${cards.length}</b><span class="muted">Event cards</span></div>
+    <div class="stats six" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr))"><div class="stat"><b>${(owned / Math.max(cards.length, 1) * 100).toFixed(1)}%</b><span class="muted">Collected</span></div>
+      <div class="stat"><b>${lvC.filter(l => own[l.key]).length}/${lvC.length}</b><span class="muted">Levels</span></div>
+      ${crC.length ? `<div class="stat"><b>${crC.filter(l => own[l.key]).length}/${crC.length}</b><span class="muted">★ Creators</span></div>` : ''}
       <div class="stat"><b>${mi.holos}/${cards.length}</b><span class="muted">✦ Holos</span></div>
+      ${S.me.golden_cards ? `<div class="stat"><b>${mi.goldens}</b><span class="muted">★ Goldens</span></div>` : ''}
       <div class="stat"><b>${mi.sets + mi.holoSets}</b><span class="muted">Sets done</span></div>
       <div class="stat"><b>${mi.rewards}/${e.rewards.filter(r => r.card).length}</b><span class="muted">Reward cards</span></div>
       <div class="stat"><b>${fmt(e.score)}</b><span class="muted">★ Stars</span></div></div></div>
@@ -2616,20 +2641,24 @@ async function renderEvent(page = 'packs') {
     <div class="panel"><h2>Event rare pulls</h2><div class="feed" id="erpulls"><span class="muted">Loading…</span></div></div>
   </div>
   <details class="panel odds"><summary><b>Where your Stars come from</b></summary><table class="scoretbl" style="margin-top:10px"><tbody>
-    <tr><td><b>Event cards</b></td><td class="muted">${mi.n}/${cards.length} cards · each counts once</td><td style="text-align:right">${fmt(mi.cards)}</td></tr>
-    <tr><td><b>✦ Holo bonus</b></td><td class="muted">${mi.holos} holo × 2</td><td style="text-align:right">+${fmt(mi.holo)}</td></tr>
+    <tr><td><b>Event cards</b></td><td class="muted">${mi.n}/${cards.length} cards${mi.creators ? ` (${mi.creators} creators)` : ''} · each counts once</td><td style="text-align:right">${fmt(mi.cards)}</td></tr>
+    <tr><td><b>✦ Holo bonus</b></td><td class="muted">${mi.holos - mi.goldens} holo × 2</td><td style="text-align:right">+${fmt(mi.holo)}</td></tr>
+    ${mi.goldens ? `<tr><td><b>★ Golden bonus</b></td><td class="muted">${mi.goldens} golden × 5</td><td style="text-align:right">+${fmt(mi.gold)}</td></tr>` : ''}
     <tr><td><b>Reward card boost</b></td><td class="muted">${mi.rewards} × +10%</td><td style="text-align:right">+${fmt(mi.boost)}</td></tr>
     <tr><td><b>Set bonuses</b></td><td class="muted">${mi.sets} set${mi.sets === 1 ? '' : 's'} done</td><td style="text-align:right">+${fmt(mi.setBonus)}</td></tr>
     <tr><td><b>✦ Holo set bonuses</b></td><td class="muted">${mi.holoSets} set${mi.holoSets === 1 ? '' : 's'} done in holo</td><td style="text-align:right">+${fmt(mi.holoSetBonus)}</td></tr>
     <tr class="tot"><td><b>Total</b></td><td></td><td style="text-align:right"><b>${fmt(mi.total)} ★</b></td></tr></tbody></table></details>
-  ${evOddsHTML(cards)}`;
+  ${evOddsHTML(lvC, crC)}`;
   loadFeeds();
   rpc('recent_event_pulls', {p_event: e.id}).then(pu => { const ago = t => { const s = (Date.now() + S.clock - new Date(t)) / 1000; return s < 60 ? 'just now' : s < 3600 ? Math.floor(s / 60) + 'm ago' : s < 86400 ? Math.floor(s / 3600) + 'h ago' : Math.floor(s / 86400) + 'd ago'; };
-    if ($('#erpulls')) $('#erpulls').innerHTML = pu.length ? pu.map(p => `<div class="feeditem t-${p.rarity}"><span class="tt">${p.holo ? '✦ ' : ''}${p.rarity.toUpperCase()}</span><span><b>${esc(p.username || '?')}</b> pulled ${esc(p.name)}${p.holo ? ' (holo)' : ''}</span><span class="spacer"></span><span class="muted">${ago(p.pulled_at)}</span></div>`).join('')
+    if ($('#erpulls')) $('#erpulls').innerHTML = pu.length ? pu.map(p => `<div class="feeditem t-${p.golden ? 'apex' : p.rarity}"><span class="tt">${p.golden ? '★ GOLDEN' : (p.holo ? '✦ ' : '') + p.rarity.toUpperCase()}</span><span><b>${esc(p.username || '?')}</b> pulled ${esc(p.name)}${p.kind === 'player' ? ' (creator)' : ''}${p.golden ? '' : p.holo ? ' (holo)' : ''}</span><span class="spacer"></span><span class="muted">${ago(p.pulled_at)}</span></div>`).join('')
       : '<span class="muted">Nobody has pulled a Legendary or better yet.</span>'; }).catch(() => {});
   $('#evOpen').onclick = () => openPacks('event', 1);
   $('#evAll').onclick = () => openPacks('event', e.packs);
   if ($('#evHolo')) $('#evHolo').onclick = () => openPacks('holo_event', 1);
+  if ($('#evC')) $('#evC').onclick = () => openPacks('creator_event', 1);
+  if ($('#evCAll')) $('#evCAll').onclick = () => openPacks('creator_event', e.cpacks);
+  if ($('#evHoloC')) $('#evHoloC').onclick = () => openPacks('holo_creator_event', 1);
   if ($('#evHoloAll')) $('#evHoloAll').onclick = () => openPacks('holo_event', e.holo_packs);
   if ($('#evClaim')) $('#evClaim').onclick = async ev => { const b = ev.currentTarget; b.disabled = true;
     try { const r = await rpc('claim_event_reward', {p_token: S.token}); setState(r.state); S.event = r.event; await loadMyCards(); celebrate(b, '#2dd4bf', 0, 'Reward: ' + evRewardText(r.reward).replace(/<[^>]+>/g, '')); setTimeout(route, 1600); }
@@ -2640,6 +2669,7 @@ setInterval(() => {   // event countdowns
   const now = Date.now() + S.clock, fmtT = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); const d = Math.floor(s / 86400), hh = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
     return d ? `${d}d ${hh}h` : hh ? `${hh}h ${m}m` : `${m}:${String(s % 60).padStart(2, '0')}`; };
   if ($('#evEnd')) $('#evEnd').textContent = fmtT(new Date(e.ends_at) - now);
+  if ($('#evCNext') && e.next_cpack_at) { const ms = new Date(e.next_cpack_at) - now; if (ms <= 0) { e.next_cpack_at = null; if (location.hash.startsWith('#/event')) renderEvent(); else loadEvent(); } else $('#evCNext').textContent = fmtT(ms); }
   if ($('#evNext') && e.next_at) { const ms = new Date(e.next_at) - now; if (ms <= 0) { e.next_at = null; if (location.hash.startsWith('#/event')) renderEvent(); else loadEvent(); } else $('#evNext').textContent = fmtT(ms); }
 }, 1000);
 // red dot on the News tab while there's an update you haven't seen
