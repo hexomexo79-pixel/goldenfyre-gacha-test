@@ -175,8 +175,8 @@ a.chip{text-decoration:none}a.chip:not(.on){color:inherit}a.chip.on .muted{color
 .tq{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-top:6px}.tq summary{cursor:pointer}
 .tq pre{white-space:pre-wrap;font-size:12px;background:#0006;border-radius:8px;padding:10px;margin:8px 0;overflow-x:auto}
 .noimg.evimg{font-size:clamp(28px,30cqw,54px);line-height:1}
-.card.ev{--frame:linear-gradient(135deg,#ff3cac,#784ba0,#2b86c5)}
-.card.evr{--frame:linear-gradient(135deg,#ff3cac,#ffd36b,#2b86c5)}
+.card.ev{--frame:linear-gradient(135deg,#14b8a6,#4ade80,#0f766e)}
+.card.evr{--frame:linear-gradient(135deg,#14b8a6,#ffd36b,#4ade80)}
 .evtrack{display:grid;gap:8px;margin-top:10px}
 .evstep{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:8px 12px}
 .evstep.done{opacity:.55}.evstep.next{border-color:#ff3cac;box-shadow:0 0 14px #ff3cac44}
@@ -481,7 +481,9 @@ footer{text-align:center;color:#6d6975;font-size:12px;padding:20px;line-height:1
   <nav id="evnav" class="hidden">
     <a href="#/event">◆ Event packs</a>
     <a href="#/event/collection">Collection</a>
+    <a href="#/event/sets">Sets</a>
     <a href="#/event/board">Leaderboard</a>
+    <a href="#/event/trades">Trades</a>
     <a href="#/" class="evback">← Back to main</a>
   </nav>
   <div class="spacer"></div>
@@ -755,7 +757,12 @@ function shortN(x) { x = Math.round(x); return x >= 1e6 ? (x / 1e6).toFixed(x >=
 
 // ---------------- card rendering ----------------
 function thumb(l) {
-  if (l.tier === 'event' || l.tier === 'eventreward') return `<div class="noimg evimg">${esc(l.info?.emoji || '◆')}</div>`;
+  if (l.tier === 'event' || l.tier === 'eventreward') {   // event cards: teal-green tile with the first letter (like player cards)
+    if (l.image) return `<img loading="lazy" src="${esc(l.image)}" alt="">`;
+    if (l.video_id) return `<img loading="lazy" src="https://i.ytimg.com/vi/${esc(l.video_id)}/mqdefault.jpg" alt="">`;
+    const hu = 160 + hueOf(l.key) % 30;
+    return `<div class="pimg" style="background:linear-gradient(135deg,hsl(${hu} 70% 42%),hsl(${(hu + 25) % 360} 75% 22%))">${esc(l.name.replace(/[^A-Za-z0-9]/g, '').slice(0, 1).toUpperCase() || '◆')}</div>`;
+  }
   if (l.tier === 'player') {
     const url = PLAYER_ICONS[ckey(l.name)] || CFG.CREATOR_ICONS[ckey(l.name)], hu = hueOf(ckey(l.name));
     return url ? `<img loading="lazy" src="${esc(url)}" alt="">` : `<div class="pimg" style="background:linear-gradient(135deg,hsl(${hu} 65% 48%),hsl(${(hu + 40) % 360} 60% 28%))">${esc(l.name.slice(0, 1).toUpperCase())}</div>`;
@@ -857,7 +864,7 @@ function showLevel(key) {
           <div class="muted" style="font-size:12px;margin-top:4px">${hn < 3 ? `Needs 3 unlocked holos (you have ${hn})` : tot - 3 > 0 ? `You'll have ${tot - 3} holo left after this` : `⚠ You only have 3, so you won't have this holo anymore`}</div></div>`; })() : ''}
       ${ownersHTML(key)}
       <button class="btn" style="margin-top:12px" onclick="this.closest('.modal').remove()">Close</button></div>`;
-    m.querySelectorAll('[data-tw]').forEach(b => b.onclick = () => { m.remove(); go('#/trades/new/' + encodeURIComponent(b.dataset.tw)); });
+    m.querySelectorAll('[data-tw]').forEach(b => b.onclick = () => { m.remove(); go(tradeBase() + '/new/' + encodeURIComponent(b.dataset.tw)); });
     const phd = m.querySelector('#phd');
     if (phd) phd.onclick = async () => {
       const left = S.myCards.filter(c => c.level_key === key && c.holo && !c.golden).length - 3;
@@ -896,7 +903,7 @@ function showLevel(key) {
       return `<div style="margin-top:12px"><button class="btn sm ${n >= need ? 'primary' : ''}" id="craft" ${n >= need ? '' : 'disabled'}>✦ Combine ${need} copies into a holo</button> <span class="muted" style="font-size:12px">${n}/${need} unlocked normal copies</span></div>`; })() : ''}
     ${ownersHTML(key)}
     <button class="btn" style="margin-top:12px" onclick="this.closest('.modal').remove()">Close</button></div>`;
-  m.querySelectorAll('[data-tw]').forEach(b => b.onclick = () => { m.remove(); go('#/trades/new/' + encodeURIComponent(b.dataset.tw)); });
+  m.querySelectorAll('[data-tw]').forEach(b => b.onclick = () => { m.remove(); go(tradeBase() + '/new/' + encodeURIComponent(b.dataset.tw)); });
   const hb = m.querySelector('#hdTrade');
   if (hb) hb.onclick = async () => {
     const left = S.myCards.filter(c => c.level_key === key && c.holo && !c.golden).length - 3;
@@ -1923,7 +1930,7 @@ async function renderPlayer(name) {
       ${filterChips(draw, cards)}<div id="cgrid">${collectionGrid(cards)}</div></div>
       <div class="panel"><h2>Sets ${holoToggle(draw)}</h2>${setCards(orderSets(row.info.sets), own, true)}</div>
       <div class="panel"><h2>Score</h2>${scoreTable(row.info)}</div>`;
-    const tw = $('#tw'); if (tw) tw.onclick = () => go('#/trades/new/' + encodeURIComponent(row.username));
+    const tw = $('#tw'); if (tw) tw.onclick = () => go(tradeBase() + '/new/' + encodeURIComponent(row.username));
   };
   draw();
 }
@@ -1976,13 +1983,16 @@ async function renderProfile() {
 function updateTopAvatar() { const w = $('#who'); if (w && S.me) w.innerHTML = avatarHTML(myRow(), 30) + `<span>${esc(S.me.username)}</span>`; }
 
 // ---------------- trades ----------------
+// event mode trades only show event cards; normal trades never show them
+const inEv = () => location.hash.startsWith('#/event') && !!S.event;
+const tradeBase = () => inEv() ? '#/event/trades' : '#/trades';
 async function renderTrades() {
-  app.innerHTML = `<div class="panel"><div class="row between"><h2 style="margin:0">Trades</h2>
+  app.innerHTML = `<div class="panel"><div class="row between"><h2 style="margin:0">${inEv() ? '◆ Event trades' : 'Trades'}</h2>
     <div class="row"><select class="field" id="pickP"><option value="">Trade with…</option></select><button class="btn primary sm" id="newT">New trade</button></div></div>
     <div id="tl" style="margin-top:14px">Loading…</div></div>`;
   if (!S.board.length) await loadBoard();
   $('#pickP').innerHTML += S.board.filter(r => r.user_id !== S.me.user_id).map(r => `<option>${esc(r.username)}</option>`).join('');
-  $('#newT').onclick = () => { const v = $('#pickP').value; if (v) go('#/trades/new/' + encodeURIComponent(v)); else toast('Pick a player first', true); };
+  $('#newT').onclick = () => { const v = $('#pickP').value; if (v) go(tradeBase() + '/new/' + encodeURIComponent(v)); else toast('Pick a player first', true); };
   const list = await rpc('my_trades', {p_token: S.token});
   updateTradeDot(list);
   const mini = arr => arr.length ? `<div class="minis nomodal">${arr.map(c => cardHTML(S.byKey[c.level_key], {holo: c.holo, golden: c.golden, mini: true})).join('')}</div>` : '<span class="muted">nothing</span>';
@@ -2036,16 +2046,17 @@ async function renderNewTrade(name) {
   const sortKeys = m => Object.keys(m).sort((a, b) => (S.byKey[a].rank ?? 999) - (S.byKey[b].rank ?? 999));
   const isP = c => S.byKey[c.level_key]?.tier === 'player';
   const side = (cards, sel, q, m) => {
-    const cp = copiesOf(cards.filter(c => !c.locked && !sel.some(s => s.id === c.id) && matchQ(S.byKey[c.level_key], q) && (m === 'all' || (m === 'players') === isP(c))));
+    const ev = inEv(), isE = c => S.byKey[c.level_key]?.tier === 'event', cur = c => isE(c) && S.byKey[c.level_key]?.info?.event === S.event?.id;
+    const cp = copiesOf(cards.filter(c => !c.locked && !sel.some(s => s.id === c.id) && matchQ(S.byKey[c.level_key], q) && (ev ? cur(c) : !isE(c) && (m === 'all' || (m === 'players') === isP(c)))));
     const ks = sortKeys(cp);
     return ks.length ? `<div class="grid">${ks.map(k => stackHTML(S.byKey[k], cp[k], {trade: true, step: 30})).join('')}</div>` : '<p class="muted">No cards match.</p>';
   };
   const tray = (sel, otherOwn) => sel.map(c => cardHTML(S.byKey[c.level_key], {holo: c.holo, golden: c.golden, id: c.id, mini: true})).join('');
-  const modeChips = (id, m) => S.me.player_cards ? `<div class="chips" style="margin:0 0 8px">${[['all', 'All'], ['levels', 'Levels'], ['players', '★ Players']].map(([v, t]) => `<button class="chip ${m === v ? 'on' : ''}" data-${id}="${v}">${t}</button>`).join('')}</div>` : '';
+  const modeChips = (id, m) => S.me.player_cards && !inEv() ? `<div class="chips" style="margin:0 0 8px">${[['all', 'All'], ['levels', 'Levels'], ['players', '★ Players']].map(([v, t]) => `<button class="chip ${m === v ? 'on' : ''}" data-${id}="${v}">${t}</button>`).join('')}</div>` : '';
   const draw = () => {
     const ys = [$('#pg')?.scrollTop, $('#pt')?.scrollTop];
     if ($('#tnote')) note = $('#tnote').value;
-    app.innerHTML = `<div class="panel"><div class="row between"><h2 style="margin:0">Trade with ${esc(row.username)}</h2><a href="#/trades">Back</a></div>
+    app.innerHTML = `<div class="panel"><div class="row between"><h2 style="margin:0">${inEv() ? '◆ Event trade' : 'Trade'} with ${esc(row.username)}</h2><a href="${tradeBase()}">Back</a></div>
 
       <div class="tradecols">
         <div><h3>You give (${give.length}) <span class="muted" style="font-weight:600">· ${fmt(sideValue(give))} pts</span></h3><div class="tray" id="tg">${tray(give)}</div></div>
@@ -2081,7 +2092,7 @@ async function renderNewTrade(name) {
     $('#tt').querySelectorAll('.card').forEach(c => c.onclick = () => { get.splice(get.findIndex(x => x.id === +c.dataset.id), 1); draw(); });
     $('#send').onclick = async () => {
       $('#send').disabled = true;
-      try { await rpc('create_trade', {p_token: S.token, p_to_username: row.username, p_offer: give.map(c => c.id), p_request: get.map(c => c.id), p_note: $('#tnote').value}); toast('Trade offer sent!'); go('#/trades'); }
+      try { await rpc('create_trade', {p_token: S.token, p_to_username: row.username, p_offer: give.map(c => c.id), p_request: get.map(c => c.id), p_note: $('#tnote').value}); toast('Trade offer sent!'); go(tradeBase()); }
       catch (e) { toast(e.message, true); $('#send').disabled = false; }
     };
   };
@@ -2282,7 +2293,7 @@ async function route(reset) {
   const ev = h.startsWith('#/event') && !!S.event;
   document.body.classList.toggle('evmode', ev);
   $('#nav').classList.toggle('hidden', ev); $('#evnav').classList.toggle('hidden', !ev);
-  document.querySelectorAll('nav a').forEach(a => a.classList.toggle('on', a.getAttribute('href') === h || (h.startsWith('#/trades') && a.id === 'navTrades') || (h.startsWith('#/clan') && a.id === 'navBoard') || ((h.startsWith('#/sets') || h.startsWith('#/creators')) && a.id === 'navSets')));
+  document.querySelectorAll('nav a').forEach(a => a.classList.toggle('on', a.getAttribute('href') === h || (h.startsWith('#/trades') && a.id === 'navTrades') || (h.startsWith('#/event/trades') && a.getAttribute('href') === '#/event/trades') || (h.startsWith('#/clan') && a.id === 'navBoard') || ((h.startsWith('#/sets') || h.startsWith('#/creators')) && a.id === 'navSets')));
   try {
     if (h.startsWith('#/collection')) renderCollection();
     else if (h.startsWith('#/sets/players')) renderSets('players');
@@ -2297,6 +2308,9 @@ async function route(reset) {
     else if (h.startsWith('#/trades')) await renderTrades();
     else if (h.startsWith('#/news')) renderNews();
     else if (h.startsWith('#/event/collection')) await renderEvent('collection');
+    else if (h.startsWith('#/event/sets')) await renderEvent('sets');
+    else if (h.startsWith('#/event/trades/new/')) { await loadEvent(); await renderNewTrade(decodeURIComponent(h.slice(19))); }
+    else if (h.startsWith('#/event/trades')) { await loadEvent(); await renderTrades(); }
     else if (h.startsWith('#/event/board')) await renderEvent('board');
     else if (h.startsWith('#/event')) await renderEvent();
     else if (h.startsWith('#/admin')) renderAdmin();
@@ -2399,11 +2413,15 @@ function renderNews() {
 // ---------------- events ----------------
 async function loadEvent() {
   try { S.event = await rpc('event_state', {p_token: S.token}); } catch (e) { S.event = null; }
+  if (S.event && S.evSetsFor !== S.event.id) { try { const r = await sb.from('event_sets').select('*').eq('event_id', S.event.id).order('sort'); S.evSets = r.data || []; S.evSetsFor = S.event.id; } catch (e) { S.evSets = []; } }
   const a = $('#navEvent'); if (a) { a.classList.toggle('hidden', !S.event); a.innerHTML = '◆ Event' + (S.event && S.event.packs ? `<span class="dot">${S.event.packs}</span>` : ''); }
   return S.event;
 }
-function evScoreOf(owned) {   // owned: [[key, holo, n, golden]] rows from the leaderboard
-  let s = 0; for (const [k, h] of owned) { const l = S.byKey[k]; if (l && l.tier === 'event' && l.info?.event === S.event?.id) s += l.points * (h ? 2 : 1); } return s;
+function evScoreOf(owned) {   // owned: [[key, holo, n, golden]] rows from the leaderboard (cards + finished sets)
+  let s = 0; const has = new Set();
+  for (const [k, h] of owned) { const l = S.byKey[k]; if (l && l.tier === 'event' && l.info?.event === S.event?.id) { s += l.points * (h ? 2 : 1); has.add(k); } }
+  for (const st of S.evSets || []) if (st.keys.every(k => has.has(k))) s += st.bonus;
+  return s;
 }
 const evRewardText = r => [r.packs && `${r.packs} pack${r.packs > 1 ? 's' : ''}`, r.holo_packs && `${r.holo_packs} holo pack${r.holo_packs > 1 ? 's' : ''}`,
   r.player_packs && `${r.player_packs} player pack${r.player_packs > 1 ? 's' : ''}`, r.card && `◆ ${esc(S.byKey[r.card]?.name || 'event card')} (permanent card)`].filter(Boolean).join(' + ');
@@ -2428,7 +2446,7 @@ async function renderEvent(page = 'packs') {
     <div class="evbar"><i style="width:${Math.min(100, e.score / maxAt * 100)}%"></i></div>
     <div class="evtrack">${e.rewards.map((r, i) => `<div class="evstep ${i < e.claimed ? 'done' : i === e.claimed ? 'next' : ''}"><b style="min-width:70px">${fmt(r.at)}</b><span style="flex:1">${evRewardText(r)}</span>
       ${i < e.claimed ? '<span class="sdone">✓ Claimed</span>' : i === e.claimed && e.score >= r.at ? '<button class="btn primary sm" id="evClaim">Claim</button>' : ''}</div>`).join('')}</div>
-    <p class="muted" style="font-size:12px;margin:8px 0 0">Each event card you own counts once (holo = 2×). Event cards don't count toward your main score, but the rewards do.</p></div>`;
+    <p class="muted" style="font-size:12px;margin:8px 0 0">Each event card you own counts once (holo = 2×), plus bonuses from finished event sets. Event cards don't count toward your main score, but the rewards do.</p></div>`;
   if (page === 'collection') {
     S.evFilter = S.evFilter || 'all';
     const vis = cards.filter(l => S.evFilter === 'all' || (S.evFilter === 'owned') === !!cp[l.key]);
@@ -2436,6 +2454,18 @@ async function renderEvent(page = 'packs') {
       <div class="chips" style="margin-top:12px">${[['all', 'All'], ['owned', 'Owned'], ['missing', 'Missing']].map(([v, t]) => `<button class="chip ${S.evFilter === v ? 'on' : ''}" data-evf="${v}">${t}</button>`).join('')}</div>
       <div class="grid" style="row-gap:24px">${vis.map(l => cp[l.key] ? stackHTML(l, cp[l.key]) : cardHTML(l, {missing: true})).join('') || '<p class="muted">Nothing here.</p>'}</div></div>`;
     document.querySelectorAll('[data-evf]').forEach(b => b.onclick = () => { S.evFilter = b.dataset.evf; renderEvent('collection'); });
+    return;
+  }
+  if (page === 'sets') {
+    const own = ownership(S.myCards);
+    const tile = st => { const have = st.keys.filter(k => own[k]).length, done = have === st.keys.length;
+      return `<div class="stile ${done ? 'won' : ''}" style="--sc:#2dd4bf"><div class="stin"><div class="row between"><b class="sname">${st.kind === 'creator' ? 'By ' : ''}${esc(st.name)}</b><span class="scount">${have}/${st.keys.length}</span></div>
+        ${minisHTML(st.keys, own)}<div class="row between" style="gap:6px">${done ? `<span class="sdone">✓ Done · +${fmt(st.bonus)} event pts</span>` : `<span class="saway">${st.keys.length - have} away</span><span class="muted">+${fmt(st.bonus)} event pts</span>`}</div></div></div>`; };
+    const sets = (S.evSets || []).filter(s => s.kind !== 'creator'), cr = (S.evSets || []).filter(s => s.kind === 'creator');
+    const ord = a => [...a].sort((x, y) => (y.keys.every(k => own[k])) - (x.keys.every(k => own[k])) || x.keys.filter(k => !own[k]).length - y.keys.filter(k => !own[k]).length);
+    app.innerHTML = `<div class="panel"><h2>Event sets</h2><p class="muted" style="margin:-4px 0 12px;font-size:13px">Own every card in a set and its bonus is added to your event points automatically.</p>
+        ${sets.length ? `<div class="sets">${ord(sets).map(tile).join('')}</div>` : '<p class="muted">Coming soon.</p>'}</div>
+      <div class="panel"><h2>Creator sets</h2>${cr.length ? `<div class="sets">${ord(cr).map(tile).join('')}</div>` : '<p class="muted">None.</p>'}</div>`;
     return;
   }
   if (page === 'board') {
