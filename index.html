@@ -678,7 +678,7 @@ function scoreInfo(own, claimed = [], cclaimed = []) {
   if (byTier.eventreward) {   // event reward cards: flat points + a share of your best level card (Easy 5% ... Insane 25%)
     let best = 0;
     for (const [k, o] of Object.entries(own)) { const l = S.byKey[k]; if (l && TIERS.includes(l.tier)) best = Math.max(best, l.points * lvMult(o)); }
-    let now = 0;   // they stack: all 5 together = flat 3,100 + 75% of your best card (one Unverified is 100%)
+    let now = 0;   // they stack: all 5 together = flat 3,000 + 75% of your best card (one Unverified is 100%)
     for (const k of Object.keys(own)) { const l = S.byKey[k]; if (l && l.tier === 'eventreward') now += l.points + best * rewardShare(l); }
     now = Math.round(now); base += now - byTier.eventreward.pts; byTier.eventreward.pts = now;
   }
@@ -2084,6 +2084,16 @@ function updateTradeDot(list) {
   const n = list.filter(t => t.incoming && t.status === 'pending').length;
   $('#navTrades').innerHTML = 'Trades' + (n ? `<span class="dot">${n}</span>` : '');
 }
+// list order everywhere cards are picked: levels #1 → #90, then Unverified, players by list position, event cards hardest first
+function cardOrder(k) {
+  const l = S.byKey[k]; if (!l) return 1e9;
+  if (l.rank) return l.rank;
+  if (l.tier === 'unverified' || l.tier === 'uplayer') return 1000 + S.levels.indexOf(l);
+  if (l.tier === 'player') return 2000 + (l.info?.pos ?? S.levels.indexOf(l));
+  if (l.tier === 'event') return 5000 + (l.info?.kind === 'player' ? 10000 : 0) + TIERS.indexOf(l.info?.rarity || 'common') * 1000 + (l.info?.order ?? 0);
+  if (l.tier === 'eventreward') return 30000 + l.points;
+  return 40000 + S.levels.indexOf(l);
+}
 async function renderNewTrade(name) {
   if (!S.board.length) await loadBoard();
   const row = S.board.find(r => r.username.toLowerCase() === name.toLowerCase());
@@ -2093,7 +2103,7 @@ async function renderNewTrade(name) {
   const give = [], get = [];   // selected card objects
   let note = '', qG = '', qT = '', mG = 'all', mT = 'all';   // m = which cards a side shows: all / levels / players
   const myOwn = ownership(S.myCards), theirOwn = ownership(theirs);
-  const sortKeys = m => Object.keys(m).sort((a, b) => (S.byKey[a].rank ?? 999) - (S.byKey[b].rank ?? 999));
+  const sortKeys = m => Object.keys(m).sort((a, b) => cardOrder(a) - cardOrder(b));
   const isP = c => S.byKey[c.level_key]?.tier === 'player';
   const side = (cards, sel, q, m) => {
     const ev = inEv(), isE = c => S.byKey[c.level_key]?.tier === 'event', cur = c => isE(c) && S.byKey[c.level_key]?.info?.event === S.event?.id;
